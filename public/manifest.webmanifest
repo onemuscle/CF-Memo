@@ -1,0 +1,11 @@
+{
+  "name": "CF MEMO — Fitness Notes",
+  "short_name": "CF MEMO",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0b0e",
+  "theme_color": "#0a0b0e",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
