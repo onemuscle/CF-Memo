@@ -5,6 +5,66 @@ import { BackIcon, PlusIcon, SearchIcon, TrashIcon } from './Icons'
 
 const KG_PER_LB = 0.45359237
 
+const PRESET_MOVEMENTS: { group: string; items: string[] }[] = [
+  {
+    group: 'バーベル',
+    items: [
+      'Back Squat', 'Front Squat', 'Overhead Squat', 'Deadlift', 'Bench Press',
+      'Shoulder Press', 'Push Press', 'Push Jerk', 'Split Jerk',
+      'Clean', 'Power Clean', 'Squat Clean', 'Hang Clean', 'Clean & Jerk',
+      'Snatch', 'Power Snatch', 'Squat Snatch', 'Thruster',
+    ],
+  },
+  {
+    group: 'ジムナスティック',
+    items: [
+      'Pull-up', 'Strict Pull-up', 'Chest to Bar', 'Bar Muscle Up', 'Ring Muscle Up',
+      'Handstand Push-up', 'Handstand Walk', 'Toes to Bar', 'Ring Dip',
+      'Rope Climb', 'Double Under', 'Pistol Squat', 'Wall Walk',
+    ],
+  },
+  {
+    group: 'ベンチマークWOD',
+    items: [
+      'Fran', 'Grace', 'Isabel', 'Helen', 'Diane', 'Elizabeth', 'Jackie',
+      'Karen', 'Annie', 'Cindy', 'Murph', 'DT', 'Nancy', 'Amanda',
+      'Filthy Fifty', 'Fight Gone Bad',
+    ],
+  },
+  {
+    group: 'モノストラクチャー',
+    items: ['Run 1km', 'Run 5km', 'Row 500m', 'Row 2000m', 'Bike Erg', 'Ski Erg'],
+  },
+]
+
+const WEIGHT_OPTIONS: number[] = []
+for (let w = 2.5; w <= 300; w += 2.5) WEIGHT_OPTIONS.push(Math.round(w * 10) / 10)
+
+function range(count: number, start = 1): number[] {
+  return Array.from({ length: count }, (_, i) => i + start)
+}
+
+type ScoreType = 'none' | 'time' | 'rounds' | 'text'
+
+function parseScore(score: string): {
+  type: ScoreType
+  min: number
+  sec: number
+  rounds: number
+  extra: number
+  text: string
+} {
+  const base = { min: 0, sec: 0, rounds: 1, extra: 0, text: '' }
+  if (!score.trim()) return { ...base, type: 'none' }
+  const time = score.match(/^(\d+):(\d{1,2})$/)
+  if (time) return { ...base, type: 'time', min: Number(time[1]), sec: Number(time[2]) }
+  const rounds = score.match(/^(\d+)R(?:\+(\d+))?$/i)
+  if (rounds) {
+    return { ...base, type: 'rounds', rounds: Number(rounds[1]), extra: rounds[2] ? Number(rounds[2]) : 0 }
+  }
+  return { ...base, type: 'text', text: score }
+}
+
 function toKg(pr: PR): number | null {
   if (pr.weight == null) return null
   return pr.unit === 'lb' ? pr.weight * KG_PER_LB : pr.weight
@@ -233,18 +293,39 @@ interface FormProps {
 }
 
 export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel }: FormProps) {
-  const [movement, setMovement] = useState(pr?.movement ?? defaultMovement ?? '')
+  const initialMovement = pr?.movement ?? defaultMovement ?? ''
+  const initialScore = parseScore(pr?.score ?? '')
+  const [movementChoice, setMovementChoice] = useState(initialMovement || '')
+  const [customMovement, setCustomMovement] = useState('')
   const [weight, setWeight] = useState(pr?.weight?.toString() ?? '')
   const [unit, setUnit] = useState<'kg' | 'lb'>(pr?.unit ?? 'kg')
   const [reps, setReps] = useState(pr?.reps?.toString() ?? '')
-  const [score, setScore] = useState(pr?.score ?? '')
+  const [scoreType, setScoreType] = useState<ScoreType>(initialScore.type)
+  const [scoreMin, setScoreMin] = useState(initialScore.min)
+  const [scoreSec, setScoreSec] = useState(initialScore.sec)
+  const [scoreRounds, setScoreRounds] = useState(initialScore.rounds)
+  const [scoreExtra, setScoreExtra] = useState(initialScore.extra)
+  const [scoreText, setScoreText] = useState(initialScore.text)
   const [date, setDate] = useState(pr?.date ?? today())
   const [note, setNote] = useState(pr?.note ?? '')
 
-  const movements = useMemo(
-    () => Array.from(new Map(prs.map(p => [p.movementKey, p.movement])).values()).sort(),
-    [prs],
-  )
+  const movement = movementChoice === '__custom__' ? customMovement : movementChoice
+
+  // 登録済み種目 (編集中の種目・初期値も含む)
+  const userMovements = useMemo(() => {
+    const map = new Map(prs.map(p => [p.movementKey, p.movement]))
+    if (initialMovement) map.set(movementKeyOf(initialMovement), initialMovement)
+    return Array.from(map.values()).sort()
+  }, [prs, initialMovement])
+
+  const userKeys = useMemo(() => new Set(userMovements.map(movementKeyOf)), [userMovements])
+
+  // 選択中の重量がプリセット刻みにない場合 (旧データなど) は選択肢に含める
+  const weightOptions = useMemo(() => {
+    const current = weight.trim() ? Number(weight) : null
+    if (current == null || WEIGHT_OPTIONS.includes(current)) return WEIGHT_OPTIONS
+    return [...WEIGHT_OPTIONS, current].sort((a, b) => a - b)
+  }, [weight])
 
   const pastEntries = useMemo(() => {
     const key = movementKeyOf(movement)
@@ -252,9 +333,22 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
     return prs.filter(p => p.movementKey === key && p.id !== pr?.id).slice(0, 5)
   }, [movement, prs, pr])
 
+  function composedScore(): string {
+    switch (scoreType) {
+      case 'time':
+        return `${scoreMin}:${String(scoreSec).padStart(2, '0')}`
+      case 'rounds':
+        return `${scoreRounds}R${scoreExtra > 0 ? `+${scoreExtra}` : ''}`
+      case 'text':
+        return scoreText.trim()
+      default:
+        return ''
+    }
+  }
+
   async function handleSave() {
     if (!movement.trim()) {
-      alert('種目名を入力してください。')
+      alert('種目を選択してください。')
       return
     }
     const saved: PR = {
@@ -264,7 +358,7 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
       weight: weight.trim() ? Number(weight) : null,
       unit,
       reps: reps.trim() ? Number(reps) : null,
-      score: score.trim(),
+      score: composedScore(),
       date,
       note: note.trim(),
       createdAt: pr?.createdAt ?? Date.now(),
@@ -292,31 +386,52 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
         </button>
       </div>
 
-      <label className="field-label">種目名</label>
-      <input
+      <label className="field-label">種目</label>
+      <select
         className="input"
-        list="movement-list"
-        placeholder="例: Push Press / Back Squat / Fran"
-        value={movement}
-        onChange={e => setMovement(e.target.value)}
-      />
-      <datalist id="movement-list">
-        {movements.map(m => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
+        value={movementChoice}
+        onChange={e => setMovementChoice(e.target.value)}
+      >
+        <option value="">種目を選択…</option>
+        {userMovements.length > 0 && (
+          <optgroup label="登録済み">
+            {userMovements.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </optgroup>
+        )}
+        {PRESET_MOVEMENTS.map(g => {
+          const items = g.items.filter(m => !userKeys.has(movementKeyOf(m)))
+          if (items.length === 0) return null
+          return (
+            <optgroup key={g.group} label={g.group}>
+              {items.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </optgroup>
+          )
+        })}
+        <option value="__custom__">＋ その他 (自由入力)</option>
+      </select>
+      {movementChoice === '__custom__' && (
+        <input
+          className="input"
+          placeholder="種目名を入力 (例: Sled Push)"
+          value={customMovement}
+          onChange={e => setCustomMovement(e.target.value)}
+          autoFocus
+        />
+      )}
 
       <div className="field-grid">
         <div>
           <label className="field-label">重量</label>
-          <input
-            className="input"
-            type="number"
-            inputMode="decimal"
-            placeholder="例: 80"
-            value={weight}
-            onChange={e => setWeight(e.target.value)}
-          />
+          <select className="input" value={weight} onChange={e => setWeight(e.target.value)}>
+            <option value="">なし</option>
+            {weightOptions.map(w => (
+              <option key={w} value={w}>{w}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="field-label">単位</label>
@@ -327,24 +442,74 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
         </div>
         <div>
           <label className="field-label">レップ数</label>
-          <input
-            className="input"
-            type="number"
-            inputMode="numeric"
-            placeholder="例: 1"
-            value={reps}
-            onChange={e => setReps(e.target.value)}
-          />
+          <select className="input" value={reps} onChange={e => setReps(e.target.value)}>
+            <option value="">なし</option>
+            {range(50).map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <label className="field-label">スコア (タイム・ラウンド数など)</label>
-      <input
+      <label className="field-label">スコア</label>
+      <select
         className="input"
-        placeholder="例: 3:21 / 15 rounds / RX"
-        value={score}
-        onChange={e => setScore(e.target.value)}
-      />
+        value={scoreType}
+        onChange={e => setScoreType(e.target.value as ScoreType)}
+      >
+        <option value="none">なし</option>
+        <option value="time">タイム (分:秒)</option>
+        <option value="rounds">ラウンド + レップ</option>
+        <option value="text">自由入力</option>
+      </select>
+      {scoreType === 'time' && (
+        <div className="field-grid two">
+          <div>
+            <label className="field-label">分</label>
+            <select className="input" value={scoreMin} onChange={e => setScoreMin(Number(e.target.value))}>
+              {range(60, 0).map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="field-label">秒</label>
+            <select className="input" value={scoreSec} onChange={e => setScoreSec(Number(e.target.value))}>
+              {range(60, 0).map(s => (
+                <option key={s} value={s}>{String(s).padStart(2, '0')}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+      {scoreType === 'rounds' && (
+        <div className="field-grid two">
+          <div>
+            <label className="field-label">ラウンド</label>
+            <select className="input" value={scoreRounds} onChange={e => setScoreRounds(Number(e.target.value))}>
+              {range(99).map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="field-label">+ レップ</label>
+            <select className="input" value={scoreExtra} onChange={e => setScoreExtra(Number(e.target.value))}>
+              {range(100, 0).map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+      {scoreType === 'text' && (
+        <input
+          className="input"
+          placeholder="例: RX / 21-15-9 スケール"
+          value={scoreText}
+          onChange={e => setScoreText(e.target.value)}
+        />
+      )}
 
       <label className="field-label">日付</label>
       <input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} />
