@@ -24,18 +24,45 @@ const PRESET_MOVEMENTS: { group: string; items: string[] }[] = [
     ],
   },
   {
-    group: 'ベンチマークWOD',
+    group: 'ダンベル・KB・自重',
+    items: [
+      'Wall Ball', 'Burpee', 'Box Jump', 'Kettlebell Swing', 'Turkish Get-up',
+      'Dumbbell Snatch', 'Dumbbell Clean & Jerk', 'Devil Press', 'GHD Sit-up',
+      'Sled Push', 'Farmers Carry',
+    ],
+  },
+  {
+    group: 'ベンチマークWOD (Girls)',
     items: [
       'Fran', 'Grace', 'Isabel', 'Helen', 'Diane', 'Elizabeth', 'Jackie',
-      'Karen', 'Annie', 'Cindy', 'Murph', 'DT', 'Nancy', 'Amanda',
-      'Filthy Fifty', 'Fight Gone Bad',
+      'Karen', 'Annie', 'Cindy', 'Nancy', 'Amanda', 'Barbara', 'Chelsea',
+      'Angie', 'Linda', 'Mary', 'Eva', 'Kelly', 'Filthy Fifty', 'Fight Gone Bad',
+    ],
+  },
+  {
+    group: 'ヒーローWOD',
+    items: [
+      'Murph', 'DT', 'JT', 'Michael', 'Daniel', 'Josh', 'Randy', 'Nate',
+      'Ryan', 'Glen', 'Badger', 'Whitten', 'Chad',
     ],
   },
   {
     group: 'モノストラクチャー',
-    items: ['Run 1km', 'Run 5km', 'Row 500m', 'Row 2000m', 'Bike Erg', 'Ski Erg'],
+    items: [
+      'Run 400m', 'Run 1km', 'Run 5km', 'Row 500m', 'Row 1000m', 'Row 2000m',
+      'Bike Erg', 'Assault Bike', 'Ski Erg',
+    ],
   },
 ]
+
+/** 種目名がどのプリセット種類に属するか (なければ null) */
+function presetGroupOf(name: string): string | null {
+  const key = movementKeyOf(name)
+  for (const g of PRESET_MOVEMENTS) {
+    if (g.items.some(item => movementKeyOf(item) === key)) return g.group
+  }
+  return null
+}
 
 const WEIGHT_OPTIONS: number[] = []
 for (let w = 2.5; w <= 300; w += 2.5) WEIGHT_OPTIONS.push(Math.round(w * 10) / 10)
@@ -295,8 +322,14 @@ interface FormProps {
 export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel }: FormProps) {
   const initialMovement = pr?.movement ?? defaultMovement ?? ''
   const initialScore = parseScore(pr?.score ?? '')
+  const initialGroup = initialMovement
+    ? presetGroupOf(initialMovement) ?? '__user__'
+    : ''
+  const [movementGroup, setMovementGroup] = useState(initialGroup)
   const [movementChoice, setMovementChoice] = useState(initialMovement || '')
-  const [customMovement, setCustomMovement] = useState('')
+  const [customMovement, setCustomMovement] = useState(
+    initialGroup === '__custom__' ? initialMovement : '',
+  )
   const [weight, setWeight] = useState(pr?.weight?.toString() ?? '')
   const [unit, setUnit] = useState<'kg' | 'lb'>(pr?.unit ?? 'kg')
   const [reps, setReps] = useState(pr?.reps?.toString() ?? '')
@@ -309,7 +342,7 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
   const [date, setDate] = useState(pr?.date ?? today())
   const [note, setNote] = useState(pr?.note ?? '')
 
-  const movement = movementChoice === '__custom__' ? customMovement : movementChoice
+  const movement = movementGroup === '__custom__' ? customMovement : movementChoice
 
   // 登録済み種目 (編集中の種目・初期値も含む)
   const userMovements = useMemo(() => {
@@ -317,8 +350,6 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
     if (initialMovement) map.set(movementKeyOf(initialMovement), initialMovement)
     return Array.from(map.values()).sort()
   }, [prs, initialMovement])
-
-  const userKeys = useMemo(() => new Set(userMovements.map(movementKeyOf)), [userMovements])
 
   // 選択中の重量がプリセット刻みにない場合 (旧データなど) は選択肢に含める
   const weightOptions = useMemo(() => {
@@ -386,37 +417,46 @@ export function PRForm({ pr, prs, defaultMovement, onSaved, onDeleted, onCancel 
         </button>
       </div>
 
-      <label className="field-label">種目</label>
+      <label className="field-label">種類</label>
       <select
         className="input"
-        value={movementChoice}
-        onChange={e => setMovementChoice(e.target.value)}
+        value={movementGroup}
+        onChange={e => {
+          setMovementGroup(e.target.value)
+          setMovementChoice('')
+        }}
       >
-        <option value="">種目を選択…</option>
-        {userMovements.length > 0 && (
-          <optgroup label="登録済み">
-            {userMovements.map(m => (
+        <option value="">種類を選択…</option>
+        {userMovements.length > 0 && <option value="__user__">登録済みの種目</option>}
+        {PRESET_MOVEMENTS.map(g => (
+          <option key={g.group} value={g.group}>{g.group}</option>
+        ))}
+        <option value="__custom__">その他 (自由入力)</option>
+      </select>
+
+      {movementGroup && movementGroup !== '__custom__' && (
+        <>
+          <label className="field-label">種目</label>
+          <select
+            className="input"
+            value={movementChoice}
+            onChange={e => setMovementChoice(e.target.value)}
+          >
+            <option value="">種目を選択…</option>
+            {(movementGroup === '__user__'
+              ? userMovements
+              : PRESET_MOVEMENTS.find(g => g.group === movementGroup)?.items ?? []
+            ).map(m => (
               <option key={m} value={m}>{m}</option>
             ))}
-          </optgroup>
-        )}
-        {PRESET_MOVEMENTS.map(g => {
-          const items = g.items.filter(m => !userKeys.has(movementKeyOf(m)))
-          if (items.length === 0) return null
-          return (
-            <optgroup key={g.group} label={g.group}>
-              {items.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </optgroup>
-          )
-        })}
-        <option value="__custom__">＋ その他 (自由入力)</option>
-      </select>
-      {movementChoice === '__custom__' && (
+          </select>
+        </>
+      )}
+
+      {movementGroup === '__custom__' && (
         <input
           className="input"
-          placeholder="種目名を入力 (例: Sled Push)"
+          placeholder="種目名を入力 (例: Yoke Carry)"
           value={customMovement}
           onChange={e => setCustomMovement(e.target.value)}
           autoFocus
