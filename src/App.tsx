@@ -3,28 +3,33 @@ import { listMemos, listPRs } from './db'
 import type { Memo, PR } from './types'
 import MemoList from './components/MemoList'
 import MemoDetail from './components/MemoDetail'
-import MemoEditor from './components/MemoEditor'
+import MemoEditor, { type MemoDraft } from './components/MemoEditor'
 import { PRList, MovementDetail, PRForm } from './components/PRPage'
 import WodScan from './components/WodScan'
-import { NoteIcon, TrophyIcon, ScanIcon } from './components/Icons'
+import TodayPage from './components/TodayPage'
+import PlanOverview from './components/PlanOverview'
+import { memoDraft } from './plan/plan'
+import { NoteIcon, TrophyIcon, ScanIcon, TodayIcon } from './components/Icons'
 
-type Tab = 'memos' | 'prs' | 'scan'
+type Tab = 'today' | 'memos' | 'prs' | 'scan'
 
 type View =
   | { name: 'home' }
   | { name: 'memo-detail'; id: string }
-  | { name: 'memo-edit'; id?: string }
+  | { name: 'memo-edit'; id?: string; draft?: MemoDraft }
   | { name: 'movement'; movementKey: string }
   | { name: 'pr-edit'; id?: string; movement?: string }
+  | { name: 'plan' }
 
 const TABS: { key: Tab; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
+  { key: 'today', label: '今日', icon: TodayIcon },
   { key: 'memos', label: 'メモ', icon: NoteIcon },
   { key: 'prs', label: 'PR記録', icon: TrophyIcon },
   { key: 'scan', label: 'スキャン', icon: ScanIcon },
 ]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('memos')
+  const [tab, setTab] = useState<Tab>('today')
   const [view, setView] = useState<View>({ name: 'home' })
   const [memos, setMemos] = useState<Memo[]>([])
   const [prs, setPRs] = useState<PR[]>([])
@@ -70,6 +75,7 @@ export default function App() {
         return (
           <MemoEditor
             memo={memo}
+            draft={view.draft}
             onSaved={async saved => {
               await refresh()
               setView({ name: 'memo-detail', id: saved.id })
@@ -114,6 +120,8 @@ export default function App() {
           />
         )
       }
+      case 'plan':
+        return <PlanOverview onBack={home} />
       default:
         return null
     }
@@ -121,6 +129,13 @@ export default function App() {
 
   function renderTab() {
     switch (tab) {
+      case 'today':
+        return (
+          <TodayPage
+            onWriteMemo={day => setView({ name: 'memo-edit', draft: memoDraft(day) })}
+            onOpenPlan={() => setView({ name: 'plan' })}
+          />
+        )
       case 'memos':
         return (
           <MemoList

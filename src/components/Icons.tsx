@@ -83,6 +83,32 @@ export function EditIcon({ size }: IconProps) {
   )
 }
 
+export function ChevronIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
+export function TodayIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+      <path d="M8 15h4" />
+    </svg>
+  )
+}
+
+export function ListIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )
+}
+
 export function CameraIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>

@@ -4,8 +4,17 @@ import { saveImageFile, useImageUrl } from '../images'
 import { CATEGORY_META, newId, type Category, type Memo } from '../types'
 import { BackIcon, CameraIcon } from './Icons'
 
+/** 新規メモの下書き (プランの「この日のメモを書く」から渡される) */
+export interface MemoDraft {
+  category?: Category
+  title?: string
+  body?: string
+  tags?: string[]
+}
+
 interface Props {
   memo?: Memo
+  draft?: MemoDraft
   onSaved: (memo: Memo) => void
   onCancel: () => void
 }
@@ -22,11 +31,11 @@ function EditThumb({ imageId, onRemove }: { imageId: string; onRemove: () => voi
   )
 }
 
-export default function MemoEditor({ memo, onSaved, onCancel }: Props) {
-  const [category, setCategory] = useState<Category>(memo?.category ?? 'wod')
-  const [title, setTitle] = useState(memo?.title ?? '')
-  const [body, setBody] = useState(memo?.body ?? '')
-  const [tagsText, setTagsText] = useState(memo?.tags.join(', ') ?? '')
+export default function MemoEditor({ memo, draft, onSaved, onCancel }: Props) {
+  const [category, setCategory] = useState<Category>(memo?.category ?? draft?.category ?? 'wod')
+  const [title, setTitle] = useState(memo?.title ?? draft?.title ?? '')
+  const [body, setBody] = useState(memo?.body ?? draft?.body ?? '')
+  const [tagsText, setTagsText] = useState((memo?.tags ?? draft?.tags ?? []).join(', '))
   const [imageIds, setImageIds] = useState<string[]>(memo?.imageIds ?? [])
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)

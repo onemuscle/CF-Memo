@@ -48,8 +48,14 @@ export function newId(): string {
   return crypto.randomUUID()
 }
 
+/** Date → YYYY-MM-DD (ローカルタイム基準。UTC変換だと朝の記録が前日になる) */
+export function toISO(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 export function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return toISO(new Date())
 }
 
 export function formatDate(iso: string): string {
