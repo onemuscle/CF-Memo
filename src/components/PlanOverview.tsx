@@ -13,9 +13,25 @@ import {
   WEEKLY_CHECKS,
   WEEKS,
 } from '../plan/planData'
+import {
+  BURPEE_PACING,
+  BURPEE_PACING_NOTE,
+  GLOSSARY,
+  LOAD_BALANCE,
+  MEAL_GUIDE,
+  METRICS,
+  PHILOSOPHY,
+  ROLES,
+  SKIP_RULE,
+  SKIP_RULE_NOTE,
+  TARGET_PHYSIQUE,
+  WEEK_SHAPE,
+  WEIGHT_RULE,
+  WHY_HARD,
+} from '../plan/guideData'
 import { planDay, todayISO } from '../plan/plan'
 import { BackIcon, ChevronIcon } from './Icons'
-import { ExerciseList, MealTimeline } from './TodayPage'
+import { ExerciseList, MealTimeline, SectionBlock } from './TodayPage'
 
 const MEAL_KEYS = ['食A', '食B', '食C']
 const BODYMAKE: { key: 'shoulder' | 'back' | 'optional'; label: string }[] = [
@@ -52,6 +68,27 @@ export default function PlanOverview({ onBack }: { onBack: () => void }) {
         </div>
         <p className="card-note">{START_STATS}</p>
       </section>
+
+      <Fold title="設計思想">
+        <SectionBlock section={PHILOSOPHY} />
+        <SectionBlock section={WEEK_SHAPE} />
+        <SectionBlock section={ROLES} />
+        <SectionBlock section={LOAD_BALANCE} />
+        <SectionBlock section={TARGET_PHYSIQUE} />
+      </Fold>
+
+      <Fold title="中止・交換の判断">
+        <SectionBlock section={SKIP_RULE} />
+        <SectionBlock section={SKIP_RULE_NOTE} />
+        <SectionBlock section={WHY_HARD} />
+        <SectionBlock section={BURPEE_PACING} />
+        <p className="guide-text">{BURPEE_PACING_NOTE}</p>
+      </Fold>
+
+      <Fold title="進捗の見かた">
+        <SectionBlock section={METRICS} />
+        <SectionBlock section={WEIGHT_RULE} />
+      </Fold>
 
       <Fold title="週ごとの進行" defaultOpen>
         <ul className="week-list">
@@ -100,6 +137,20 @@ export default function PlanOverview({ onBack }: { onBack: () => void }) {
             <li key={r}>{r}</li>
           ))}
         </ul>
+        {MEAL_GUIDE.map(s => (
+          <SectionBlock key={s.title} section={s} />
+        ))}
+      </Fold>
+
+      <Fold title="用語集">
+        <dl className="term-list">
+          {GLOSSARY.map(t => (
+            <div key={t.term}>
+              <dt>{t.term}</dt>
+              <dd>{t.ja}</dd>
+            </div>
+          ))}
+        </dl>
       </Fold>
 
       <Fold title="目的とルール">
