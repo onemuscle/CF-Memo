@@ -1547,3 +1547,161 @@ input[type='date'].input {
   background: var(--bg-raised);
   border-color: var(--border);
 }
+
+/* ================================================================
+   解説・用語 (GUIDE)
+   ================================================================ */
+
+/* ---------- 英語への訳 ---------- */
+
+.gloss-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 5px;
+}
+
+.gloss {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.gloss b {
+  color: var(--k);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.ex-name-ja {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+/* ---------- 狙い ---------- */
+
+.guide-aim {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  background: color-mix(in srgb, var(--k) 8%, var(--bg-input));
+  border-left: 2px solid var(--k);
+  border-radius: 0 10px 10px 0;
+  padding: 9px 12px;
+}
+
+/* ---------- 折りたたみ (二段目) ---------- */
+
+.subfold {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.subfold.open {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.subfold-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.subfold.open .subfold-head {
+  color: var(--k);
+}
+
+.subfold-body {
+  padding: 2px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- 解説ブロック ---------- */
+
+.guide-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guide-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--k, var(--accent));
+}
+
+.guide-text {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+/* ---------- ラベル + 内容 ---------- */
+
+.pair-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pair-list > div {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.pair-list dt {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pair-list dd {
+  color: var(--text-dim);
+}
+
+/* ---------- 用語集 ---------- */
+
+.term-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.term-list > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.term-list dt {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.term-list dd {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
+}

@@ -7,6 +7,18 @@ import {
   type PlanDay,
 } from '../plan/planData'
 import {
+  AIM_JA,
+  BURPEE_PACING,
+  BURPEE_PACING_NOTE,
+  EXERCISE_JA,
+  MEAL_GUIDE,
+  SESSION_GUIDE,
+  SKIP_RULE,
+  SKIP_RULE_NOTE,
+  glossFor,
+  type GuideSection,
+} from '../plan/guideData'
+import {
   AM_COLOR,
   MEAL_COLOR,
   SESSION_META,
@@ -226,6 +238,10 @@ function DayBody({
             <li key={r}>{r}</li>
           ))}
         </ul>
+        <SubFold title="夜トレを中止する判断">
+          <SectionBlock section={SKIP_RULE} />
+          <SectionBlock section={SKIP_RULE_NOTE} />
+        </SubFold>
       </Card>
 
       <div className="today-actions">
@@ -239,6 +255,75 @@ function DayBody({
         </button>
       </div>
     </>
+  )
+}
+
+/** タイトル中の英語に日本語訳を添える */
+export function GlossRow({ text }: { text: string }) {
+  const terms = glossFor(text)
+  if (!terms.length) return null
+  return (
+    <span className="gloss-row">
+      {terms.map(t => (
+        <span key={t.term} className="gloss">
+          <b>{t.term}</b>
+          {t.ja}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** 解説ブロック (見出し + 段落 + 箇条書き + ラベル対) */
+export function SectionBlock({ section }: { section: GuideSection }) {
+  return (
+    <div className="guide-section">
+      <h4 className="guide-title">{section.title}</h4>
+      {section.body?.map(p => (
+        <p key={p} className="guide-text">
+          {p}
+        </p>
+      ))}
+      {section.bullets && (
+        <ul className="bullet-list">
+          {section.bullets.map(b => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      )}
+      {section.pairs && (
+        <dl className="pair-list">
+          {section.pairs.map(p => (
+            <div key={p.label}>
+              <dt>{p.label}</dt>
+              <dd>{p.detail}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  )
+}
+
+/** カードの中で開く二段目の折りたたみ */
+export function SubFold({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`subfold ${open ? 'open' : ''}`}>
+      <button className="subfold-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span>{title}</span>
+        <i className={`plan-caret ${open ? 'open' : ''}`}>
+          <ChevronIcon size={16} />
+        </i>
+      </button>
+      {open && <div className="subfold-body">{children}</div>}
+    </div>
   )
 }
 
@@ -273,7 +358,10 @@ function Card({
       >
         <span className="plan-tag">{tag}</span>
         <span className="plan-time">{time}</span>
-        <h3 className="plan-title">{title}</h3>
+        <h3 className="plan-title">
+          {title}
+          <GlossRow text={title} />
+        </h3>
         <i className={`plan-caret ${open ? 'open' : ''}`}>
           <ChevronIcon size={18} />
         </i>
@@ -287,59 +375,42 @@ function Card({
 
 function PmDetail({ day }: { day: PlanDay }) {
   const week = weekPlan(day.week)
+  const guide = SESSION_GUIDE[day.kind]
 
-  switch (day.kind) {
-    case 'shoulder':
-    case 'back':
-    case 'optional':
-      return <ExerciseList items={EXERCISES[day.kind]} />
+  return (
+    <>
+      <p className="guide-aim">{guide.aim}</p>
 
-    case 'easyrun':
-      return (
-        <>
-          {week && (
-            <div className="metric-row">
-              <Metric label="EASY / STRIDE" value={week.easy} />
-              <Metric label="BURPEE" value={week.burpee} />
-            </div>
-          )}
-          <ExerciseList items={EXERCISES.easyrun} />
-        </>
-      )
+      {day.kind === 'easyrun' && week && (
+        <div className="metric-row">
+          <Metric label="EASY / STRIDE" value={week.easy} />
+          <Metric label="BURPEE" value={week.burpee} />
+        </div>
+      )}
 
-    case 'quality':
-      return (
-        <>
-          {week && (
-            <div className="metric-row">
-              <Metric label={`WEEK ${week.week} メニュー`} value={week.quality} wide />
-            </div>
-          )}
-          <ExerciseList items={EXERCISES.quality} />
-        </>
-      )
+      {day.kind === 'quality' && week && (
+        <div className="metric-row">
+          <Metric label={`WEEK ${week.week} メニュー`} value={week.quality} wide />
+        </div>
+      )}
 
-    case 'restday':
-      return (
-        <p className="card-note">
-          金曜は完全レスト。散歩と軽いMobilityだけにして、睡眠を最優先にする。
-        </p>
-      )
+      {day.kind in EXERCISES && (
+        <ExerciseList items={EXERCISES[day.kind as keyof typeof EXERCISES]} />
+      )}
 
-    case 'weekend':
-      return (
-        <p className="card-note">
-          追加トレはなし。土日どちらもCrossFitに行くなら、土曜のBodymake補助を削る。
-        </p>
-      )
-
-    case 'review':
-      return (
-        <p className="card-note">
-          体重(7日平均)・腹囲・同条件の写真・WOD出力・Run/Burpeeの失速を記録して、次の12週を組み直す。
-        </p>
-      )
-  }
+      <SubFold title="詳しい解説">
+        {guide.sections.map(s => (
+          <SectionBlock key={s.title} section={s} />
+        ))}
+        {day.kind === 'quality' && (
+          <>
+            <SectionBlock section={BURPEE_PACING} />
+            <p className="guide-text">{BURPEE_PACING_NOTE}</p>
+          </>
+        )}
+      </SubFold>
+    </>
+  )
 }
 
 function Metric({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
@@ -364,12 +435,15 @@ export function ExerciseList({ items }: { items: Exercise[] }) {
       {items.map(e => (
         <li key={e.name} className="ex-item">
           <div className="ex-top">
-            <span className="ex-name">{e.name}</span>
+            <span className="ex-name">
+              {e.name}
+              {EXERCISE_JA[e.name] && <i className="ex-name-ja">{EXERCISE_JA[e.name]}</i>}
+            </span>
             {volumeOf(e) && <span className="ex-volume">{volumeOf(e)}</span>}
           </div>
           <div className="ex-meta">
             <span className="ex-chip">{e.intensity}</span>
-            <span className="ex-aim">{e.aim}</span>
+            <span className="ex-aim">{AIM_JA[e.aim] ?? e.aim}</span>
           </div>
           {(e.caution || e.memo) && (
             <p className="ex-note">
@@ -420,6 +494,12 @@ function MealCard({ day }: { day: PlanDay }) {
       <MealTimeline pattern={active} />
 
       {pattern.total.point && <p className="card-note">{pattern.total.point}</p>}
+
+      <SubFold title="食事の考え方">
+        {MEAL_GUIDE.map(s => (
+          <SectionBlock key={s.title} section={s} />
+        ))}
+      </SubFold>
     </Card>
   )
 }
