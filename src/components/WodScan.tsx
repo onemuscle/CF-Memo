@@ -5,6 +5,7 @@ import {
   QUALITY_SETTING,
   QUALITY_TIERS,
   checkApiKey,
+  judgeAccessory,
   qualityOf,
   transcribeWod,
   wodToText,
@@ -14,6 +15,9 @@ import {
 import { deleteSetting, getSetting, putMemo, putSetting, putWod } from '../db'
 import { saveImageFile } from '../images'
 import { formatDate, newId, today, type Memo, type ScannedWod } from '../types'
+import { EXERCISES, TOP_RULES } from '../plan/planData'
+import { planDay } from '../plan/plan'
+import AdviceCard from './AdviceCard'
 import { CameraIcon } from './Icons'
 import { WOD_SAVED_EVENT } from './TodayPage'
 
@@ -50,6 +54,9 @@ export default function WodScan({ onSaved }: Props) {
   const [text, setText] = useState('')
   const [result, setResult] = useState('')
   const [saving, setSaving] = useState(false)
+  const [judging, setJudging] = useState(false)
+  /** advice がどの日付のプランに対する判定か。日付を変えたら出し直せるようにする */
+  const [advisedDate, setAdvisedDate] = useState('')
   const [error, setError] = useState('')
 
   const [apiKey, setApiKey] = useState('')
@@ -87,6 +94,7 @@ export default function WodScan({ onSaved }: Props) {
     setError('')
     setDate(today())
     setTitle('')
+    setAdvisedDate('')
     setPhase('ready')
   }
 
@@ -95,6 +103,37 @@ export default function WodScan({ onSaved }: Props) {
     setText(wodToText(d))
     setTitle(d.title || `WOD ${formatDate(date)}`)
     setPhase('edit')
+  }
+
+  /**
+   * その日の補助トレをどうするか判定する。
+   * 予定種目が無い日 (完全休養・週末) は判定するものが無いので呼ばない。
+   */
+  async function runAdvice(d: WodDraft, forDate: string) {
+    const day = planDay(forDate)
+    const planned = day && day.kind in EXERCISES
+      ? EXERCISES[day.kind as keyof typeof EXERCISES]
+      : null
+    if (!day || !planned?.length) {
+      setAdvisedDate(forDate)
+      return
+    }
+    setJudging(true)
+    try {
+      const a = await judgeAccessory(
+        d,
+        { date: forDate, pm: day.pm, note: day.note, exercises: planned, topRules: TOP_RULES },
+        apiKey,
+        quality,
+      )
+      setDraft(prev => ({ ...prev, advice: { ...a, forDate } }))
+      setAdvisedDate(forDate)
+    } catch (err) {
+      console.error(err)
+      setError('補助トレの判定に失敗しました。読み取り結果はそのまま保存できます。')
+    } finally {
+      setJudging(false)
+    }
   }
 
   /** Claudeで読み取る。キー未設定なら呼ばれない */
@@ -106,6 +145,8 @@ export default function WodScan({ onSaved }: Props) {
     try {
       const d = await transcribeWod(file, apiKey, quality)
       applyDraft(d)
+      // 読み取れた内容をそのまま使って、続けて補助トレを判定する
+      await runAdvice(d, date)
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : '読み取りに失敗しました。')
@@ -340,6 +381,31 @@ export default function WodScan({ onSaved }: Props) {
             <strong>保存するまで「今日」タブには入りません。</strong>
             下の「保存して…」を押すと、指定した日のWODとして記録されます。
           </p>
+
+          {judging && <p className="scan-hint">今夜の補助トレをどうするか判定しています…</p>}
+
+          {draft.advice && (
+            <>
+              <label className="field-label">今夜の補助トレ</label>
+              <AdviceCard advice={draft.advice} />
+            </>
+          )}
+
+          {draft.advice && advisedDate !== date && (
+            <div className="scan-actions">
+              <p className="fine">
+                日付を {formatDate(date)} に変えました。上の判定は {formatDate(advisedDate)} の予定に
+                対するものです。
+              </p>
+              <button
+                className="btn-ghost wide"
+                onClick={() => runAdvice(draft, date)}
+                disabled={judging}
+              >
+                この日の予定で判定し直す
+              </button>
+            </div>
+          )}
 
           <label className="field-label" htmlFor="wod-date">
             日付
