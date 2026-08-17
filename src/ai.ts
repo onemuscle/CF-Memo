@@ -9,11 +9,51 @@ import type { ScannedWod, WodMovement } from './types'
  * かすれ・斜め・記号 (21-15-9, 43/30kg, ↑↓) にも耐える。
  */
 
-const MODEL = 'claude-opus-5'
-/** Claudeの高解像度入力の上限。これ以上送っても精度は上がらず画像トークンだけ増える */
-const MAX_EDGE = 2576
-
 export const API_KEY_SETTING = 'anthropic-api-key'
+export const QUALITY_SETTING = 'read-quality'
+
+export type Quality = 'eco' | 'standard' | 'best'
+
+/**
+ * 読み取りの品質と費用の段。
+ *
+ * maxEdge は送信前に縮小する長辺。2576px はClaudeの高解像度入力の上限で、
+ * それ以上送っても精度は上がらず画像トークンだけ増える。Haikuは高解像度の
+ * 対象外なので1568pxに落として無駄な転送をやめる。
+ *
+ * effort は思考の深さ。文字起こしは推論より知覚の仕事なので、低くしても
+ * 精度はあまり落ちない。Haiku 4.5 は effort に非対応なので送らない。
+ */
+export const QUALITY_TIERS: Record<
+  Quality,
+  { label: string; model: string; maxEdge: number; effort?: 'low' | 'medium' | 'high'; cost: string }
+> = {
+  eco: {
+    label: '節約',
+    model: 'claude-haiku-4-5',
+    maxEdge: 1568,
+    cost: '1回1円未満',
+  },
+  standard: {
+    label: '標準',
+    model: 'claude-sonnet-5',
+    maxEdge: 2576,
+    effort: 'low',
+    cost: '1回2〜3円',
+  },
+  best: {
+    label: '高精度',
+    model: 'claude-opus-5',
+    maxEdge: 2576,
+    cost: '1回8〜9円',
+  },
+}
+
+export const DEFAULT_QUALITY: Quality = 'standard'
+
+export function qualityOf(v: string | undefined): Quality {
+  return v === 'eco' || v === 'standard' || v === 'best' ? v : DEFAULT_QUALITY
+}
 
 /** 構造化出力のスキーマ。すべて必須にして、無ければ空文字を返させる */
 const WOD_SCHEMA = {
@@ -82,9 +122,10 @@ const PROMPT =
  */
 export async function prepareImage(
   file: File,
+  maxEdge = 2576,
 ): Promise<{ data: string; mediaType: 'image/jpeg'; width: number; height: number }> {
   const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
   const width = Math.round(bitmap.width * scale)
   const height = Math.round(bitmap.height * scale)
 
@@ -111,7 +152,12 @@ interface Parsed {
 
 export type WodDraft = Omit<ScannedWod, 'date' | 'result' | 'updatedAt'>
 
-export async function transcribeWod(file: File, apiKey: string): Promise<WodDraft> {
+export async function transcribeWod(
+  file: File,
+  apiKey: string,
+  quality: Quality = DEFAULT_QUALITY,
+): Promise<WodDraft> {
+  const tier = QUALITY_TIERS[quality]
   const client = new Anthropic({
     apiKey,
     // ブラウザから直接叩くための明示。SDKが anthropic-dangerous-direct-browser-access を付ける
@@ -119,13 +165,17 @@ export async function transcribeWod(file: File, apiKey: string): Promise<WodDraf
     maxRetries: 2,
   })
 
-  const image = await prepareImage(file)
+  const image = await prepareImage(file, tier.maxEdge)
 
   const res = await client.messages.create({
-    model: MODEL,
+    model: tier.model,
     max_tokens: 16000,
     system: SYSTEM,
-    output_config: { format: { type: 'json_schema', schema: WOD_SCHEMA } },
+    output_config: {
+      format: { type: 'json_schema', schema: WOD_SCHEMA },
+      // Haiku 4.5 は effort 非対応。送るとエラーになるので段に持たせている
+      ...(tier.effort ? { effort: tier.effort } : {}),
+    },
     messages: [
       {
         role: 'user',
@@ -170,13 +220,12 @@ export async function transcribeWod(file: File, apiKey: string): Promise<WodDraf
   }
 }
 
-/** APIキーが生きているかの軽い確認。設定画面の「確認」ボタン用 */
+/** APIキーが生きているかの軽い確認。いちばん安いモデルで1往復するだけ */
 export async function checkApiKey(apiKey: string): Promise<void> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 })
   await client.messages.create({
-    model: MODEL,
+    model: QUALITY_TIERS.eco.model,
     max_tokens: 16,
-    thinking: { type: 'disabled' },
     messages: [{ role: 'user', content: 'ok とだけ返してください。' }],
   })
 }

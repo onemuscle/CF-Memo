@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import Tesseract from 'tesseract.js'
 import {
   API_KEY_SETTING,
+  QUALITY_SETTING,
+  QUALITY_TIERS,
   checkApiKey,
+  qualityOf,
   transcribeWod,
   wodToText,
+  type Quality,
   type WodDraft,
 } from '../ai'
 import { deleteSetting, getSetting, putMemo, putSetting, putWod } from '../db'
@@ -49,6 +53,7 @@ export default function WodScan({ onSaved }: Props) {
   const [error, setError] = useState('')
 
   const [apiKey, setApiKey] = useState('')
+  const [quality, setQuality] = useState<Quality>('standard')
   const [keyInput, setKeyInput] = useState('')
   const [keyOpen, setKeyOpen] = useState(false)
   const [keyStatus, setKeyStatus] = useState('')
@@ -56,7 +61,13 @@ export default function WodScan({ onSaved }: Props) {
 
   useEffect(() => {
     getSetting(API_KEY_SETTING).then(v => setApiKey(v ?? ''))
+    getSetting(QUALITY_SETTING).then(v => setQuality(qualityOf(v)))
   }, [])
+
+  function pickQuality(q: Quality) {
+    setQuality(q)
+    putSetting(QUALITY_SETTING, q)
+  }
 
   useEffect(() => {
     if (!file) return
@@ -91,7 +102,7 @@ export default function WodScan({ onSaved }: Props) {
     setProgress(0)
     setError('')
     try {
-      const d = await transcribeWod(file, apiKey)
+      const d = await transcribeWod(file, apiKey, quality)
       applyDraft(d)
     } catch (err) {
       console.error(err)
@@ -205,7 +216,7 @@ export default function WodScan({ onSaved }: Props) {
       <div className="scan-intro">
         <h2 className="scan-title">WOD SCAN</h2>
         <p className="scan-sub">
-          ホワイトボードのWOD画像を読み取り、その日の「今日」タブのAMに反映します。
+          ホワイトボードのWOD画像を読み取り、保存するとその日の「今日」タブに反映されます。
           結果は保存前に自由に編集できます。
         </p>
       </div>
@@ -224,6 +235,8 @@ export default function WodScan({ onSaved }: Props) {
             keyInput={keyInput}
             setKeyInput={setKeyInput}
             status={keyStatus}
+            quality={quality}
+            onPickQuality={pickQuality}
             onSave={saveKey}
             onClear={clearKey}
           />
@@ -241,7 +254,7 @@ export default function WodScan({ onSaved }: Props) {
           {apiKey ? (
             <>
               <button className="btn-primary wide" onClick={runClaude}>
-                読み取る (高精度)
+                読み取る ({QUALITY_TIERS[quality].label} · {QUALITY_TIERS[quality].cost})
               </button>
               <button className="btn-ghost wide" onClick={runTesseract}>
                 端末内OCRで読み取る (オフライン)
@@ -271,6 +284,8 @@ export default function WodScan({ onSaved }: Props) {
               keyInput={keyInput}
               setKeyInput={setKeyInput}
               status={keyStatus}
+              quality={quality}
+              onPickQuality={pickQuality}
               onSave={saveKey}
               onClear={clearKey}
             />
@@ -319,8 +334,13 @@ export default function WodScan({ onSaved }: Props) {
             </div>
           )}
 
+          <p className="scan-note">
+            <strong>保存するまで「今日」タブには入りません。</strong>
+            下の「保存して…」を押すと、指定した日のWODとして記録されます。
+          </p>
+
           <label className="field-label" htmlFor="wod-date">
-            日付 (この日の「今日」タブに反映されます)
+            日付
           </label>
           <input
             id="wod-date"
@@ -364,7 +384,7 @@ export default function WodScan({ onSaved }: Props) {
 
           <div className="scan-actions">
             <button className="btn-primary wide" onClick={handleSave} disabled={saving}>
-              {saving ? '保存中…' : 'メモとして保存'}
+              {saving ? '保存中…' : `保存して ${formatDate(date)} の「今日」に反映`}
             </button>
             <button className="btn-ghost wide" onClick={reset} disabled={saving}>
               やり直す
@@ -391,6 +411,8 @@ function ApiKeyPanel({
   keyInput,
   setKeyInput,
   status,
+  quality,
+  onPickQuality,
   onSave,
   onClear,
 }: {
@@ -400,6 +422,8 @@ function ApiKeyPanel({
   keyInput: string
   setKeyInput: (v: string) => void
   status: string
+  quality: Quality
+  onPickQuality: (q: Quality) => void
   onSave: () => void
   onClear: () => void
 }) {
@@ -407,7 +431,9 @@ function ApiKeyPanel({
     <div className="key-panel">
       <button className="key-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span>読み取りの設定</span>
-        <span className="key-state">{apiKey ? '高精度 — 有効' : '未設定'}</span>
+        <span className="key-state">
+          {apiKey ? QUALITY_TIERS[quality].label : '未設定'}
+        </span>
       </button>
 
       {open && (
@@ -433,6 +459,31 @@ function ApiKeyPanel({
             onChange={e => setKeyInput(e.target.value)}
           />
           {status && <p className="fine">{status}</p>}
+
+          {apiKey && (
+            <>
+              <label className="field-label">読み取りの品質</label>
+              <div className="chip-row">
+                {(Object.keys(QUALITY_TIERS) as Quality[]).map(q => (
+                  <button
+                    key={q}
+                    className={`chip ${q === quality ? 'chip-on' : ''}`}
+                    onClick={() => onPickQuality(q)}
+                  >
+                    {QUALITY_TIERS[q].label}
+                  </button>
+                ))}
+              </div>
+              <p className="fine">
+                {QUALITY_TIERS[quality].label} — {QUALITY_TIERS[quality].cost}（
+                {QUALITY_TIERS[quality].model}）。
+                {quality === 'eco' &&
+                  'いちばん安い代わりに読み間違いが増えます。同じ写真を標準と見比べて決めてください。'}
+                {quality === 'standard' && '普段はこれで十分です。読めないボードだけ高精度に上げてください。'}
+                {quality === 'best' && '標準で読めなかったボード用です。'}
+              </p>
+            </>
+          )}
           <div className="scan-actions">
             <button className="btn-primary wide" onClick={onSave} disabled={!keyInput.trim()}>
               確認して保存
