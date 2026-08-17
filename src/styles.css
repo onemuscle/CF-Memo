@@ -805,11 +805,13 @@ input[type='date'].input {
   flex-direction: column;
 }
 
+/* Rx/Rx+/Rx++ を併記するボードは回数側がとても長くなる。
+   1行に収まるうちは種目名と横並び、収まらなくなったら回数側だけ下の行に落とす。 */
 .wod-move {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 2px 10px;
   padding: 9px 0;
   border-top: 1px solid var(--border);
 }
@@ -819,25 +821,30 @@ input[type='date'].input {
 }
 
 .wod-move-name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
 }
 
+/* 日本語訳は種目名と同じ行に置く */
 .wod-move-ja {
-  display: block;
   font-size: 11.5px;
   font-weight: 400;
   color: var(--text-dim);
-  margin-top: 1px;
+  margin-left: 7px;
 }
 
 .wod-move-rx {
-  flex-shrink: 0;
+  margin-left: auto;
+  /* これ以上狭くなるくらいなら次の行へ送る (種目名が1文字ずつ折れるのを防ぐ) */
+  min-width: 9em;
+  text-align: right;
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .wod-raw {
