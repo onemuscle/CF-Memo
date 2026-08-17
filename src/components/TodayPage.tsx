@@ -38,6 +38,7 @@ import {
   FIRST_DATE,
   LAST_DATE,
 } from '../plan/plan'
+import AdviceCard from './AdviceCard'
 import { BackIcon, ChevronIcon, EditIcon, ListIcon } from './Icons'
 
 interface Props {
@@ -304,7 +305,17 @@ function DayBody({
         )}
       </Card>
 
-      <Card color={meta.color} tag="補助" title={day.pm} defaultOpen>
+      {/* 朝のWODを読み取った日は、その内容を踏まえた判定を予定の上に出す */}
+      <Card
+        key={wod?.advice ? `pm-${wod.updatedAt}` : 'pm'}
+        color={meta.color}
+        tag="補助"
+        title={day.pm}
+        defaultOpen
+      >
+        {wod?.advice && wod.advice.forDate === day.date && (
+          <AdviceCard advice={wod.advice} />
+        )}
         <PmDetail day={day} />
       </Card>
 

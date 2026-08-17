@@ -36,6 +36,24 @@ export interface WodMovement {
   load: string
 }
 
+/** 補助トレをどうするかの判定 */
+export interface AccessoryAdvice {
+  /** keep=そのまま / reduce=量を減らす / swap=種目を入れ替える / skip=中止 */
+  verdict: 'keep' | 'reduce' | 'swap' | 'skip'
+  /** 朝のWODの負荷 */
+  amLoad: 'high' | 'medium' | 'low'
+  /** 一言の結論 */
+  headline: string
+  /** WODのどこを見てそう判断したか */
+  reason: string
+  /** 変更後の内容。verdict が keep なら元のまま、skip なら空配列 */
+  exercises: { name: string; nameJa: string; volume: string; change: string }[]
+  /** やる場合の注意。無ければ空文字 */
+  caution: string
+  /** 判定に使ったプランの日付 */
+  forDate: string
+}
+
 /** WODスキャンの結果。日付をキーに1件だけ保持する */
 export interface ScannedWod {
   /** YYYY-MM-DD。「今日」タブのAMカードはこの日付で引く */
@@ -52,6 +70,8 @@ export interface ScannedWod {
   result: string
   /** 'claude' = API読み取り / 'tesseract' = 端末内OCR / 'manual' = 手入力 */
   source: 'claude' | 'tesseract' | 'manual'
+  /** 補助トレの判定。読み取れなかった日や休養日には無い */
+  advice?: AccessoryAdvice
   imageId?: string
   memoId?: string
   updatedAt: number

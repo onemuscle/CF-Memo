@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { ScannedWod, WodMovement } from './types'
+import type { AccessoryAdvice, ScannedWod, WodMovement } from './types'
 
 /**
  * ホワイトボードのWODをClaudeの画像入力で読み取る。
@@ -254,4 +254,147 @@ export function wodToText(w: {
   }
   if (!lines.length) return w.raw
   return lines.join('\n')
+}
+
+// ================================================================ 補助トレの判定
+//
+// 朝のWODが重ければ夜の補助は削る、というのはプラン側にもとから書いてある判断
+// (TOP_RULES / SKIP_RULE)。ただし「重いかどうか」はその日のボードを見ないと決め
+// られないので、読み取ったWODとその日の予定を突き合わせて判定させる。
+
+const ADVICE_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdict: {
+      type: 'string',
+      enum: ['keep', 'reduce', 'swap', 'skip'],
+      description:
+        'keep=予定どおり / reduce=セット数を減らす / swap=種目を入れ替える / skip=この日はやらない',
+    },
+    amLoad: {
+      type: 'string',
+      enum: ['high', 'medium', 'low'],
+      description: '朝のWODの負荷。ボードに書かれた量だけで判断する',
+    },
+    headline: {
+      type: 'string',
+      description: '結論を1文で。例「予定どおりでOK」「肩を2セット減らす」「今日は中止」',
+    },
+    reason: {
+      type: 'string',
+      description:
+        'WODのどの種目・どの量を見てそう判断したかを具体的に。2〜3文。一般論ではなく今日のボードの中身を挙げる',
+    },
+    exercises: {
+      type: 'array',
+      description:
+        '実施する内容。keep なら予定の種目をそのまま、reduce/swap なら変更後、skip なら空配列',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '種目名（英語表記のまま）' },
+          nameJa: { type: 'string', description: '日本語の言い方' },
+          volume: { type: 'string', description: 'セット×回数。例 3×12-20' },
+          change: {
+            type: 'string',
+            description: '予定からの変更点。変更なしなら空文字。例「4→2セット」「肘に優しい種目へ」',
+          },
+        },
+        required: ['name', 'nameJa', 'volume', 'change'],
+        additionalProperties: false,
+      },
+    },
+    caution: { type: 'string', description: 'やる場合の注意。無ければ空文字' },
+  },
+  required: ['verdict', 'amLoad', 'headline', 'reason', 'exercises', 'caution'],
+  additionalProperties: false,
+} as const
+
+const ADVICE_SYSTEM = `あなたはCrossFitと筋肥大を並行させている人のコーチです。その日の朝のWODを踏まえて、夜に予定している補助トレをそのままやるか、減らすか、入れ替えるか、やめるかを決めます。
+
+判断の柱:
+- 刺激を重複させない。朝に大量に使った部位を、夜にもう一度追い込まない。予定を守ることより重複を避けるほうが優先。
+- 次のいずれかに当たる朝は「高負荷」とみなす: 2km以上のラン / 40〜50rep以上のバーピー / Wall Ball・Thruster・Lunge などスクワット系の大量 / Squat Snatch・Cleanなど高ボリュームのOlympic lifting。
+- 高負荷ならラン・バーピーは削除する。筋肥大の補助は、疲れている部位と被らなければ少量なら残してよい。
+- 夜は45〜50分以内。予定より増やす提案はしない。
+
+守ること:
+- 判断はボードに書かれている量だけを根拠にする。本人のRPEや体調は分からないので推測しない。必要なら caution で「RPEが9〜10だった場合は中止」のように条件で書く。
+- 予定を変える理由がなければ迷わず keep を選ぶ。無理に変更を作らない。
+- reduce では予定にある種目のセット数を落とす。新しい種目を足さない。
+- swap は、朝と部位が重複する種目を、重複しない別の種目に置き換えるときだけ。
+- reason には「バーピー50repとThruster 43kgが入っているため」のように、今日のボードの中身を必ず挙げる。`
+
+/** 今日の補助トレをどうするかを判定する。予定種目が無い日 (完全休養など) は呼ばない */
+export async function judgeAccessory(
+  wod: { title: string; format: string; movements: WodMovement[]; notes: string; raw: string },
+  plan: {
+    date: string
+    pm: string
+    note: string
+    exercises: { name: string; sets: string; reps: string; intensity: string; aim: string; caution: string }[]
+    topRules: string[]
+  },
+  apiKey: string,
+  quality: Quality = DEFAULT_QUALITY,
+): Promise<Omit<AccessoryAdvice, 'forDate'>> {
+  const tier = QUALITY_TIERS[quality]
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 })
+
+  const wodText = [
+    wod.title && `WOD名: ${wod.title}`,
+    wod.format && `形式: ${wod.format}`,
+    ...wod.movements.map(m => `- ${m.name} ${[m.reps, m.load].filter(Boolean).join(' ')}`),
+    wod.notes && `備考: ${wod.notes}`,
+    wod.raw && `ボード原文:\n${wod.raw}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const planText = [
+    `夜の予定: ${plan.pm}`,
+    plan.note && `この日のメモ: ${plan.note}`,
+    '予定している種目:',
+    ...plan.exercises.map(
+      e =>
+        `- ${e.name} ${e.sets}×${e.reps} ${e.intensity}（狙い: ${e.aim}${e.caution ? ` / 注意: ${e.caution}` : ''}）`,
+    ),
+    '',
+    'プラン全体のルール:',
+    ...plan.topRules.map(r => `- ${r}`),
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const res = await client.messages.create({
+    model: tier.model,
+    max_tokens: 16000,
+    system: ADVICE_SYSTEM,
+    output_config: {
+      format: { type: 'json_schema', schema: ADVICE_SCHEMA },
+      ...(tier.effort ? { effort: tier.effort } : {}),
+    },
+    messages: [
+      {
+        role: 'user',
+        content: `【今朝のWOD】\n${wodText}\n\n【今夜の予定】\n${planText}\n\n今夜の補助トレをどうするか判定してください。`,
+      },
+    ],
+  })
+
+  if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens') {
+    throw new Error('補助トレの判定に失敗しました。')
+  }
+  const block = res.content.find(b => b.type === 'text')
+  if (!block || block.type !== 'text') throw new Error('補助トレの判定が空でした。')
+
+  const parsed = JSON.parse(block.text) as Omit<AccessoryAdvice, 'forDate'>
+  return {
+    verdict: parsed.verdict ?? 'keep',
+    amLoad: parsed.amLoad ?? 'medium',
+    headline: parsed.headline ?? '',
+    reason: parsed.reason ?? '',
+    exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
+    caution: parsed.caution ?? '',
+  }
 }
