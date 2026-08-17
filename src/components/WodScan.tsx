@@ -66,7 +66,9 @@ export default function WodScan({ onSaved }: Props) {
 
   function pickQuality(q: Quality) {
     setQuality(q)
+    // 品質はタップした時点で保存する。「確認して保存」を押す必要はない
     putSetting(QUALITY_SETTING, q)
+    setKeyStatus(`読み取りの品質を「${QUALITY_TIERS[q].label}」にしました。`)
   }
 
   useEffect(() => {
@@ -446,20 +448,6 @@ function ApiKeyPanel({
             キーは<strong>この端末のブラウザ内だけ</strong>に保存され、GitHubにもサーバーにも
             送信されません。ブラウザのサイトデータを消すと一緒に消えます。
           </p>
-          <label className="field-label" htmlFor="api-key">
-            Anthropic APIキー
-          </label>
-          <input
-            id="api-key"
-            className="input"
-            type="password"
-            autoComplete="off"
-            placeholder="sk-ant-..."
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-          />
-          {status && <p className="fine">{status}</p>}
-
           {apiKey && (
             <>
               <label className="field-label">読み取りの品質</label>
@@ -475,6 +463,7 @@ function ApiKeyPanel({
                 ))}
               </div>
               <p className="fine">
+                <strong>選ぶとその場で保存されます。</strong>
                 {QUALITY_TIERS[quality].label} — {QUALITY_TIERS[quality].cost}（
                 {QUALITY_TIERS[quality].model}）。
                 {quality === 'eco' &&
@@ -484,10 +473,31 @@ function ApiKeyPanel({
               </p>
             </>
           )}
+
+          <label className="field-label" htmlFor="api-key">
+            Anthropic APIキー
+          </label>
+          <input
+            id="api-key"
+            className="input"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKey ? '変更するときだけ入力' : 'sk-ant-...'}
+            value={keyInput}
+            onChange={e => setKeyInput(e.target.value)}
+          />
+          {status && <p className="fine">{status}</p>}
+
           <div className="scan-actions">
-            <button className="btn-primary wide" onClick={onSave} disabled={!keyInput.trim()}>
-              確認して保存
-            </button>
+            {/* 保存済みのキーがあるときは入力欄が空になる。押せないボタンを残すと
+                「保存できない」ように見えるので、入力があるときだけ出す */}
+            {keyInput.trim() ? (
+              <button className="btn-primary wide" onClick={onSave}>
+                {apiKey ? '確認して更新' : '確認して保存'}
+              </button>
+            ) : (
+              apiKey && <p className="fine">キーは設定済みです。</p>
+            )}
             {apiKey && (
               <button className="btn-ghost wide" onClick={onClear}>
                 保存済みのキーを削除
