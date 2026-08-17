@@ -1868,3 +1868,23 @@ input[type='date'].input {
   line-height: 1.65;
   color: var(--text-dim);
 }
+
+.scan-note {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  padding: 11px 14px;
+}
+
+.scan-note strong {
+  color: var(--text);
+}
+
+/* 時間帯の表示は任意なので、無いときも見出しが詰まらないようにする */
+.plan-card-head {
+  grid-template-columns: auto auto 1fr auto;
+}

@@ -258,7 +258,7 @@ function ScannedWodBody({ wod }: { wod: ScannedWod }) {
       )}
 
       <p className="card-note">
-        ここが高負荷なら夜のRun・Burpeeは中止する。
+        ここが高負荷なら、この後のRun・Burpeeは中止する。
         {wod.confidence !== 'high' && wod.source === 'claude' && (
           <> 読み取りにあいまいな箇所があります。原本の写真も確認してください。</>
         )}
@@ -288,8 +288,7 @@ function DayBody({
       <Card
         key={wod ? `wod-${wod.updatedAt}` : 'plan'}
         color={AM_COLOR}
-        tag="AM"
-        time="朝"
+        tag="WOD"
         title={wod?.title || day.am}
         defaultOpen={!!wod}
       >
@@ -298,14 +297,14 @@ function DayBody({
         ) : (
           day.kind !== 'review' && (
             <p className="card-note">
-              ボックスのWOD。ここが高負荷なら夜のRun・Burpeeは中止する。
+              ボックスのWOD。ここが高負荷なら、この後のRun・Burpeeは中止する。
               スキャンタブでホワイトボードを撮ると、この欄にその日のWODが入ります。
             </p>
           )
         )}
       </Card>
 
-      <Card color={meta.color} tag="PM" time="夜" title={day.pm} defaultOpen>
+      <Card color={meta.color} tag="補助" title={day.pm} defaultOpen>
         <PmDetail day={day} />
       </Card>
 
@@ -325,7 +324,7 @@ function DayBody({
             <li key={r}>{r}</li>
           ))}
         </ul>
-        <SubFold title="夜トレを中止する判断">
+        <SubFold title="2つ目のセッションを中止する判断">
           <SectionBlock section={SKIP_RULE} />
           <SectionBlock section={SKIP_RULE_NOTE} />
         </SubFold>
@@ -414,7 +413,7 @@ export function SubFold({
   )
 }
 
-/** 「重WODなら夜中止」のような中止条件か、「RIR1-3」のような単なる指針かを見分ける */
+/** 「重WODなら中止」のような中止条件か、「RIR1-3」のような単なる指針かを見分ける */
 function isCaution(note: string): boolean {
   return /中止|省略|削除/.test(note)
 }
@@ -430,7 +429,7 @@ function Card({
 }: {
   color: string
   tag: string
-  time: string
+  time?: string
   title: string
   defaultOpen?: boolean
   children?: ReactNode
@@ -444,7 +443,7 @@ function Card({
         aria-expanded={open}
       >
         <span className="plan-tag">{tag}</span>
-        <span className="plan-time">{time}</span>
+        {time && <span className="plan-time">{time}</span>}
         <h3 className="plan-title">
           {title}
           <GlossRow text={title} />
