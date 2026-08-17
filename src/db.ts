@@ -1,7 +1,8 @@
-import type { Memo, PR, StoredImage } from './types'
+import type { Memo, PR, ScannedWod, StoredImage } from './types'
 
 const DB_NAME = 'cf-memo-db'
-const DB_VERSION = 1
+// v2: WODスキャン結果 (wods) と設定 (settings) を追加
+const DB_VERSION = 2
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -19,6 +20,12 @@ function openDB(): Promise<IDBDatabase> {
         }
         if (!db.objectStoreNames.contains('prs')) {
           db.createObjectStore('prs', { keyPath: 'id' })
+        }
+        if (!db.objectStoreNames.contains('wods')) {
+          db.createObjectStore('wods', { keyPath: 'date' })
+        }
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' })
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -87,4 +94,42 @@ export async function putPR(pr: PR): Promise<void> {
 
 export async function deletePR(id: string): Promise<void> {
   await promisify((await getStore('prs', 'readwrite')).delete(id))
+}
+
+// ---- WODスキャン結果 ----
+// 日付をキーにした上書き保存。同じ日を2回撮り直したら新しい方が残る。
+
+export async function listWods(): Promise<ScannedWod[]> {
+  const all = await promisify((await getStore('wods', 'readonly')).getAll())
+  return (all as ScannedWod[]).sort((a, b) => b.date.localeCompare(a.date))
+}
+
+export async function getWod(date: string): Promise<ScannedWod | undefined> {
+  return promisify((await getStore('wods', 'readonly')).get(date))
+}
+
+export async function putWod(wod: ScannedWod): Promise<void> {
+  await promisify((await getStore('wods', 'readwrite')).put(wod))
+}
+
+export async function deleteWod(date: string): Promise<void> {
+  await promisify((await getStore('wods', 'readwrite')).delete(date))
+}
+
+// ---- 設定 ----
+// APIキーはここ (端末内のIndexedDB) にだけ置く。リポジトリにもサーバーにも保存しない。
+
+export async function getSetting(key: string): Promise<string | undefined> {
+  const row = await promisify(
+    (await getStore('settings', 'readonly')).get(key),
+  )
+  return (row as { key: string; value: string } | undefined)?.value
+}
+
+export async function putSetting(key: string, value: string): Promise<void> {
+  await promisify((await getStore('settings', 'readwrite')).put({ key, value }))
+}
+
+export async function deleteSetting(key: string): Promise<void> {
+  await promisify((await getStore('settings', 'readwrite')).delete(key))
 }

@@ -1,4 +1,6 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { getWod } from '../db'
+import type { ScannedWod } from '../types'
 import {
   EXERCISES,
   MEALS,
@@ -42,6 +44,9 @@ interface Props {
   onWriteMemo: (day: PlanDay) => void
   onOpenPlan: () => void
 }
+
+/** スキャン保存時に「今日」タブを更新するための合図 */
+export const WOD_SAVED_EVENT = 'cf-wod-saved'
 
 /** CSS 変数 --k にセッション色を渡す */
 function accent(color: string): CSSProperties {
@@ -195,6 +200,74 @@ function WeekStrip({
   )
 }
 
+// ---------------------------------------------------------------- スキャンしたWOD
+
+/** その日にスキャンしたWODを引く。保存直後にも追従できるようイベントも待つ */
+function useScannedWod(date: string): ScannedWod | undefined {
+  const [wod, setWod] = useState<ScannedWod>()
+
+  useEffect(() => {
+    let alive = true
+    const load = () => {
+      getWod(date).then(w => {
+        if (alive) setWod(w)
+      })
+    }
+    load()
+    window.addEventListener(WOD_SAVED_EVENT, load)
+    return () => {
+      alive = false
+      window.removeEventListener(WOD_SAVED_EVENT, load)
+    }
+  }, [date])
+
+  return wod
+}
+
+function ScannedWodBody({ wod }: { wod: ScannedWod }) {
+  const hasDetail = wod.movements.length > 0
+  return (
+    <>
+      {wod.format && <p className="wod-format">{wod.format}</p>}
+
+      {hasDetail ? (
+        <div className="wod-movements">
+          {wod.movements.map((m, i) => (
+            <div className="wod-move" key={`${m.name}-${i}`}>
+              <span className="wod-move-name">
+                {m.name}
+                {m.nameJa && <span className="wod-move-ja">{m.nameJa}</span>}
+              </span>
+              <span className="wod-move-rx">
+                {[m.reps, m.load].filter(Boolean).join(' / ')}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        wod.raw && <pre className="wod-raw">{wod.raw}</pre>
+      )}
+
+      {wod.notes && <p className="card-note">{wod.notes}</p>}
+
+      {wod.result && (
+        <p className="wod-result">
+          <strong>記録</strong>
+          {wod.result}
+        </p>
+      )}
+
+      <p className="card-note">
+        ここが高負荷なら夜のRun・Burpeeは中止する。
+        {wod.confidence !== 'high' && wod.source === 'claude' && (
+          <> 読み取りにあいまいな箇所があります。原本の写真も確認してください。</>
+        )}
+        {wod.source === 'tesseract' && <> 端末内OCRの結果です。誤りが多い場合があります。</>}
+      </p>
+    </>
+  )
+}
+
 // ---------------------------------------------------------------- 本体
 
 function DayBody({
@@ -207,14 +280,28 @@ function DayBody({
   onOpenPlan: () => void
 }) {
   const meta = SESSION_META[day.kind]
+  const wod = useScannedWod(day.date)
 
   return (
     <>
-      <Card color={AM_COLOR} tag="AM" time="朝" title={day.am}>
-        {day.kind !== 'review' && (
-          <p className="card-note">
-            ボックスのWOD。ここが高負荷なら夜のRun・Burpeeは中止する。
-          </p>
+      {/* WODは非同期で届く。Card の開閉は初期値で決まるので key で作り直す */}
+      <Card
+        key={wod ? `wod-${wod.updatedAt}` : 'plan'}
+        color={AM_COLOR}
+        tag="AM"
+        time="朝"
+        title={wod?.title || day.am}
+        defaultOpen={!!wod}
+      >
+        {wod ? (
+          <ScannedWodBody wod={wod} />
+        ) : (
+          day.kind !== 'review' && (
+            <p className="card-note">
+              ボックスのWOD。ここが高負荷なら夜のRun・Burpeeは中止する。
+              スキャンタブでホワイトボードを撮ると、この欄にその日のWODが入ります。
+            </p>
+          )
         )}
       </Card>
 

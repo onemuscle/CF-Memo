@@ -24,6 +24,39 @@ export interface StoredImage {
   createdAt: number
 }
 
+/** 1種目ぶんの読み取り結果 */
+export interface WodMovement {
+  /** ボードに書かれていたままの表記 (例: Thruster) */
+  name: string
+  /** 日本語訳 (例: スラスター) */
+  nameJa: string
+  /** 回数・距離など (例: 21-15-9 / 400m) */
+  reps: string
+  /** 重量・高さなど。書かれていなければ空文字 */
+  load: string
+}
+
+/** WODスキャンの結果。日付をキーに1件だけ保持する */
+export interface ScannedWod {
+  /** YYYY-MM-DD。「今日」タブのAMカードはこの日付で引く */
+  date: string
+  title: string
+  /** AMRAP 12min / 5 Rounds For Time など */
+  format: string
+  movements: WodMovement[]
+  notes: string
+  /** 書かれていた文字をそのまま起こしたもの */
+  raw: string
+  confidence: 'high' | 'medium' | 'low'
+  /** 自分のスコア (任意) */
+  result: string
+  /** 'claude' = API読み取り / 'tesseract' = 端末内OCR / 'manual' = 手入力 */
+  source: 'claude' | 'tesseract' | 'manual'
+  imageId?: string
+  memoId?: string
+  updatedAt: number
+}
+
 export interface PR {
   id: string
   /** 表示用の種目名 (例: Push Press) */
