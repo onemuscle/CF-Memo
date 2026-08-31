@@ -248,6 +248,45 @@ export const EXERCISES: Record<'shoulder' | 'back' | 'optional' | 'easyrun' | 'q
   ],
 }
 
+/** 補助トレをやる場所。Jexer はマシン・ケーブルあり、家ジムは自宅の器具のみ */
+export type GymLocation = 'jexer' | 'home'
+
+export const HOME_EQUIPMENT =
+  'ダンベル・アジャスタブルベンチ・チェストプレスマシン・バイク・ランニングマシン・エリプティカル・バランスボール'
+
+/**
+ * 家ジム版の補助トレ。ケーブル・専用マシン・懸垂バーを使う種目を、
+ * 自宅にある器具だけで同じ狙いになるよう置き換えている。
+ * Run系 (easyrun / quality) は場所で内容が変わらないので同じ配列を参照する。
+ */
+export const EXERCISES_HOME: typeof EXERCISES = {
+  shoulder: [
+    { name: 'DB Lateral Raise', sets: '4', reps: '12-20', intensity: 'RIR1-3', aim: '肩幅/サイドデルタ', caution: '朝に大量HSPU/肩高負荷なら2-3setへ', memo: '反動を抑える' },
+    { name: 'Seated DB Lateral Raise', sets: '2', reps: '15-20', intensity: 'RIR1-2', aim: '肩幅', caution: '同上', memo: 'ベンチに座って反動を消す' },
+    { name: 'DB Overhead Triceps Ext.', sets: '3', reps: '10-15', intensity: 'RIR1-3', aim: '三頭長頭/腕の厚み', caution: '肘痛なら重量・種目変更', memo: '両手でダンベル1本を持つ' },
+    { name: 'Bench Dips', sets: '2', reps: '12-15', intensity: 'RIR1-2', aim: '三頭', caution: '肘・肩前面の痛みなら省略', memo: '足を遠くに置くほど強度UP' },
+    { name: 'Weighted Ball Crunch', sets: '4', reps: '8-12', intensity: 'RIR1-2', aim: '腹直筋の厚み', caution: '腰痛が出るフォームは中止', memo: 'バランスボールでDBを胸に抱える。12回揃ったら重量UP' },
+  ],
+  back: [
+    { name: 'One-arm DB Row', sets: '3', reps: '8-12', intensity: 'RIR1-3', aim: 'V taper/広背筋', caution: 'Pull-up大量WODなら2set', memo: 'ベンチに手と膝をつく。左右各' },
+    { name: 'Chest Supported DB Row', sets: '3', reps: '8-12', intensity: 'RIR1-3', aim: '背中の厚み', caution: 'Pull系高ボリュームなら2set', memo: 'インクラインベンチにうつ伏せ。腰の疲労を避ける' },
+    { name: 'Incline DB Curl', sets: '3', reps: '8-12', intensity: 'RIR1-2', aim: '上腕二頭筋', caution: '肘/前腕の痛みなら省略', memo: '' },
+    { name: 'Hammer Curl', sets: '2', reps: '10-15', intensity: 'RIR1-2', aim: '上腕筋/腕橈骨筋', caution: '同上', memo: '腕のゴツさ' },
+    { name: 'DB Lateral Raise', sets: '2', reps: '15-20', intensity: 'RIR1-2', aim: 'サイドデルタ', caution: '肩疲労強ければ省略', memo: '' },
+    { name: 'Lying Leg Raise', sets: '3', reps: '10-15', intensity: 'RIR1-2', aim: '腹直筋/骨盤後傾', caution: '腰が反るなら膝を曲げる', memo: 'ベンチか床で。最後に骨盤を巻く' },
+    { name: 'Ball Rollout（任意）', sets: '2', reps: '8-12', intensity: '余裕残す', aim: '腹筋/体幹', caution: '腰が反るなら中止', memo: 'バランスボールに前腕を乗せて転がす' },
+  ],
+  optional: [
+    { name: 'Incline DB Press', sets: '3', reps: '8-12', intensity: 'RIR1-3', aim: '上胸', caution: '上半身高負荷WODなら全補助中止', memo: '30-35分で終了。チェストプレスマシンでも可' },
+    { name: 'DB Lateral Raise', sets: '3', reps: '12-20', intensity: 'RIR1-2', aim: '肩幅', caution: '同上', memo: '' },
+    { name: 'Concentration Curl', sets: '2', reps: '10-15', intensity: 'RIR1-2', aim: '二頭', caution: '同上', memo: '' },
+    { name: 'DB Overhead Triceps Ext.', sets: '2', reps: '10-15', intensity: 'RIR1-2', aim: '三頭', caution: '同上', memo: '' },
+    { name: 'Ball Rollout', sets: '3', reps: '8-12', intensity: 'RIR1-2', aim: '腹筋', caution: '腰痛なら省略', memo: 'バランスボールで' },
+  ],
+  easyrun: EXERCISES.easyrun,
+  quality: EXERCISES.quality,
+}
+
 export const MEALS: Record<string, MealPattern> = {
   '食A': {
     target: '2部練/ハード日',

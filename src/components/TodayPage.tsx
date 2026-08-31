@@ -1,11 +1,12 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { getWod } from '../db'
+import { getSetting, getWod, putSetting } from '../db'
 import type { ScannedWod } from '../types'
 import {
-  EXERCISES,
+  HOME_EQUIPMENT,
   MEALS,
   TOP_RULES,
   type Exercise,
+  type GymLocation,
   type PlanDay,
 } from '../plan/planData'
 import {
@@ -22,8 +23,13 @@ import {
 } from '../plan/guideData'
 import {
   AM_COLOR,
+  GYM_LABEL,
+  GYM_SETTING,
   MEAL_COLOR,
   SESSION_META,
+  exercisesFor,
+  gymLocationOf,
+  locationMatters,
   TOTAL_DAYS,
   clampToPlan,
   dayIndex,
@@ -470,9 +476,25 @@ function Card({
 
 // ---------------------------------------------------------------- PM 詳細
 
+/** 補助トレの場所 (Jexer / 家ジム)。選択はIndexedDBに保存して次回も引き継ぐ */
+function useGymLocation(): [GymLocation, (l: GymLocation) => void] {
+  const [location, setLocation] = useState<GymLocation>('jexer')
+  useEffect(() => {
+    getSetting(GYM_SETTING).then(v => setLocation(gymLocationOf(v)))
+  }, [])
+  const update = (l: GymLocation) => {
+    setLocation(l)
+    putSetting(GYM_SETTING, l)
+  }
+  return [location, update]
+}
+
 function PmDetail({ day }: { day: PlanDay }) {
   const week = weekPlan(day.week)
   const guide = SESSION_GUIDE[day.kind]
+  const [location, setLocation] = useGymLocation()
+  const switchable = locationMatters(day.kind)
+  const exercises = exercisesFor(day.kind, switchable ? location : 'jexer')
 
   return (
     <>
@@ -491,8 +513,26 @@ function PmDetail({ day }: { day: PlanDay }) {
         </div>
       )}
 
-      {day.kind in EXERCISES && (
-        <ExerciseList items={EXERCISES[day.kind as keyof typeof EXERCISES]} />
+      {switchable && (
+        <div className="gym-toggle" role="group" aria-label="補助トレの場所">
+          {(['jexer', 'home'] as const).map(l => (
+            <button
+              key={l}
+              className={location === l ? 'on' : ''}
+              onClick={() => setLocation(l)}
+            >
+              {GYM_LABEL[l]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {exercises && <ExerciseList items={exercises} />}
+
+      {switchable && location === 'home' && (
+        <p className="card-note">
+          家ジム版: {HOME_EQUIPMENT}だけでJexer版と同じ狙いになるよう置き換えています。
+        </p>
       )}
 
       <SubFold title="詳しい解説">
