@@ -1,5 +1,15 @@
 import { toISO, type Category } from '../types'
-import { DAYS, WEEKS, type PlanDay, type SessionKind, type WeekPlan } from './planData'
+import {
+  DAYS,
+  EXERCISES,
+  EXERCISES_HOME,
+  WEEKS,
+  type Exercise,
+  type GymLocation,
+  type PlanDay,
+  type SessionKind,
+  type WeekPlan,
+} from './planData'
 
 const BY_DATE = new Map(DAYS.map(d => [d.date, d]))
 
@@ -93,6 +103,34 @@ export const SESSION_META: Record<SessionKind, SessionMeta> = {
 
 export const MEAL_COLOR = '#ff9f43'
 export const AM_COLOR = '#c6ff3e'
+
+// ---- 補助トレの場所 (Jexer / 家ジム) ----
+
+/** IndexedDBのsettingsに保存するキー */
+export const GYM_SETTING = 'accessory-gym'
+
+export const GYM_LABEL: Record<GymLocation, string> = {
+  jexer: 'Jexer',
+  home: '🏠 家ジム',
+}
+
+export function gymLocationOf(v: string | undefined): GymLocation {
+  return v === 'home' ? 'home' : 'jexer'
+}
+
+/** その日の補助種目を場所に応じて返す。種目が無い日は null */
+export function exercisesFor(kind: SessionKind, location: GymLocation): Exercise[] | null {
+  if (!(kind in EXERCISES)) return null
+  const key = kind as keyof typeof EXERCISES
+  return (location === 'home' ? EXERCISES_HOME : EXERCISES)[key]
+}
+
+/** 場所で内容が変わる日 (Bodymake日) だけ切り替えUIを出す */
+export function locationMatters(kind: SessionKind): boolean {
+  if (!(kind in EXERCISES)) return false
+  const key = kind as keyof typeof EXERCISES
+  return EXERCISES_HOME[key] !== EXERCISES[key]
+}
 
 /** '食A/食B' のように複数候補が入るため配列で返す */
 export function mealKeys(meal: string): string[] {

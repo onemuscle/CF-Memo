@@ -15,8 +15,8 @@ import {
 import { deleteSetting, getSetting, putMemo, putSetting, putWod } from '../db'
 import { saveImageFile } from '../images'
 import { formatDate, newId, today, type Memo, type ScannedWod } from '../types'
-import { EXERCISES, TOP_RULES } from '../plan/planData'
-import { planDay } from '../plan/plan'
+import { TOP_RULES } from '../plan/planData'
+import { GYM_SETTING, exercisesFor, gymLocationOf, planDay } from '../plan/plan'
 import AdviceCard from './AdviceCard'
 import { CameraIcon } from './Icons'
 import { WOD_SAVED_EVENT } from './TodayPage'
@@ -111,9 +111,9 @@ export default function WodScan({ onSaved }: Props) {
    */
   async function runAdvice(d: WodDraft, forDate: string) {
     const day = planDay(forDate)
-    const planned = day && day.kind in EXERCISES
-      ? EXERCISES[day.kind as keyof typeof EXERCISES]
-      : null
+    // 補助トレの場所 (Jexer / 家ジム) に合わせた種目リストで判定する
+    const location = gymLocationOf(await getSetting(GYM_SETTING))
+    const planned = day ? exercisesFor(day.kind, location) : null
     if (!day || !planned?.length) {
       setAdvisedDate(forDate)
       return
