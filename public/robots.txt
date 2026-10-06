@@ -1,2 +1,4 @@
 User-agent: *
+# CF MEMO (個人の記録) は検索に出さず、ワークアウト生成サイト (きょうトレ) だけ公開する
+Allow: /workout/
 Disallow: /
