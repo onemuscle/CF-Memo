@@ -1,8 +1,24 @@
-import type { Condition, Env, Goal, Injury, Level, Muscle, Rating } from './types'
+import type { Condition, Env, Gear, Goal, Injury, Level, Muscle, Rating } from './types'
 
 export const ENV_LABEL: Record<Env, string> = {
   gym: '施設型ジム',
   box: 'CrossFit',
+  home: '自宅',
+  outdoor: '野外',
+}
+
+export const GEAR_LABEL: Record<Gear, string> = {
+  dumbbell: 'ダンベル',
+  band: 'チューブ',
+  kettlebell: 'ケトルベル',
+  bar: '懸垂バー・鉄棒',
+  bench: '椅子・ベンチ',
+  stairs: '階段・坂道',
+}
+
+/** 自宅・野外 (マシンやバーベルがない場所) */
+export function isAway(env: Env): boolean {
+  return env === 'home' || env === 'outdoor'
 }
 
 export const GOAL_LABEL: Record<Goal, string> = {

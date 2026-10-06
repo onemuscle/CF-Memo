@@ -8,7 +8,14 @@ const server = await createServer({ server: { middlewareMode: true }, appType: '
 const engine = await server.ssrLoadModule('/src/workout/engine/index.ts')
 const { generateWorkout, generateForToday, decodeShare, shareCode, exerciseIds, workedMuscles } = engine
 
-const ENVS = ['gym', 'box']
+const ENVS = ['gym', 'box', 'home', 'outdoor']
+// 自宅・野外は道具の組み合わせごとに検証する
+const GEAR = {
+  gym: [[[], false]],
+  box: [[[], false]],
+  home: [[[], false], [[], true], [['dumbbell'], false], [['band', 'bench'], true], [['dumbbell', 'band', 'kettlebell', 'bench', 'bar'], false]],
+  outdoor: [[[], false], [['bar', 'bench', 'stairs'], false], [['band'], false]],
+}
 const GOALS = ['lean', 'muscle', 'strength', 'stamina', 'athletic', 'health']
 const LEVELS = ['beginner', 'intermediate', 'advanced']
 const CONDS = ['great', 'normal', 'tired']
@@ -31,8 +38,9 @@ for (const env of ENVS)
       for (const condition of CONDS)
         for (const minutes of MINUTES)
           for (const focus of FOCUS)
-            for (const injuries of INJURIES) {
-              const a = { env, goal, focus, minutes, level, condition, injuries, scale: seed % 2 ? 'men' : 'women' }
+            for (const injuries of INJURIES)
+              for (const [gear, quiet] of GEAR[env]) {
+              const a = { env, goal, focus, minutes, level, condition, injuries, scale: seed % 2 ? 'men' : 'women', gear, quiet }
               const label = JSON.stringify(a)
               seed++
               count++
@@ -43,6 +51,12 @@ for (const env of ENVS)
                 ]
                 const w = generateForToday(a, seed, history, now)
                 if (w.totalMinutes > minutes + 1) failures.push(`時間超過 ${w.totalMinutes}/${minutes}分 ${label}`)
+                if (!w.blocks.some(b => b.kind !== 'warmup' && b.kind !== 'cooldown' && b.kind !== 'finisher')) failures.push(`メインがない ${label}`)
+                if (env === 'home' || env === 'outdoor') {
+                  const away = w.blocks.flatMap(b => b.items).find(i => /マシン|ケーブル|スミス|バーベル|レッグプレス|ペック|ラットプル(?!ダウン \(|ダウン$)/.test(i.name) && !/チューブ|タオル/.test(i.name))
+                  if (away) failures.push(`${env}でジム専用の種目 (${away.name}) ${label}`)
+                  if (quiet && /ジャンプ|バーピー|ダッシュ|ジャンピング/.test(JSON.stringify(w.blocks).replaceAll('ジャンプなし', ''))) failures.push(`静かにしたいのにジャンプ系 ${label}`)
+                }
                 for (const b of w.blocks) {
                   if (!b.items.length) failures.push(`空のブロック ${b.key} ${label}`)
                   if (/NaN|undefined/.test(JSON.stringify(b))) failures.push(`表示文に NaN/undefined (${b.key}) ${label}`)

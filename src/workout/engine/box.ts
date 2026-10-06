@@ -102,7 +102,7 @@ export function buildBox(a: Answers, rng: Rng, gen: GenContext) {
       gx.forEach(e => [e.muscle, ...(e.also ?? [])].forEach(m => worked.add(m)))
     }
   }
-  if (spare >= 6) blocks.push(easyCardio(Math.min(spare, 20), 'box', a.injuries))
+  if (spare >= 6) blocks.push(easyCardio(Math.min(spare, 20), a))
 
   // ---- 解説 ----
   if (lift) {

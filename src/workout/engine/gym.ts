@@ -3,10 +3,10 @@
 // 使える時間に収まる種目数を決める (収まらなければスーパーセットにする)。
 
 import { BOOKEND_MIN, LEVEL_NUM, agoText, clamp, roundRest, secText, type GenContext } from './common'
-import { GYM_BY_ID, GYM_EXERCISES, SLOT_ORDER, type GymExercise, type Kind, type Slot } from './exercises'
-import { GOAL_LABEL, musclesText } from './labels'
+import { GYM_BY_ID, GYM_EXERCISES, SLOT_ORDER, availableFor, type GymExercise, type Kind, type Slot } from './exercises'
+import { GEAR_LABEL, GOAL_LABEL, isAway, musclesText } from './labels'
 import { shuffle, weighted, type Rng } from './rng'
-import { bikeIntervals, easyCardio, incline } from './cardio'
+import { easyCardio, intervals, steady } from './cardio'
 import type { Answers, Block, Goal, Item, Muscle } from './types'
 
 type Role = 'main' | Kind
@@ -93,6 +93,8 @@ interface Planned {
   rx: Rx
   /** 昨日・おととい鍛えた部位なので量を減らした */
   fatigued?: boolean
+  /** 自重で筋力を狙うときのテンポ指示 */
+  tempo?: boolean
 }
 
 function workSec(p: Planned, goal: Goal): number {
@@ -163,11 +165,20 @@ function pickExercise(slot: Slot, ctx: Ctx): GymExercise | undefined {
   const { a, rng, recent, used } = ctx
   const lvl = LEVEL_NUM[a.level]
   const candidates = GYM_EXERCISES.filter(
-    e => e.slot === slot && e.level <= lvl && !used.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)),
+    e => e.slot === slot && e.level <= lvl && !used.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)) && availableFor(e, a),
   )
+  const away = isAway(a.env)
   return weighted(rng, candidates, e => {
     let s = 1
     if (recent.has(e.id)) s *= 0.35
+    if (away) {
+      // 道具があるなら負荷を上げやすい種目を、慣れた人には易しすぎる自重種目を避ける
+      if ((a.goal === 'muscle' || a.goal === 'strength') && e.equip !== 'bodyweight') s *= 2.5
+      if (lvl >= 2 && (e.id === 'knee-push-up' || e.id === 'incline-push-up')) s *= 0.05
+      if (lvl >= 2 && (a.goal === 'strength' || a.goal === 'muscle') && (e.id === 'chair-squat' || e.id === 'bw-squat')) s *= 0.3
+      if (lvl >= 2 && (a.goal === 'strength' || a.goal === 'muscle') && e.id === 'pistol-box') s *= 4
+      if (lvl === 3 && e.level === 3) s *= 2
+    }
     if (a.level === 'beginner') s *= e.equip === 'machine' || e.equip === 'cable' ? 1.6 : e.equip === 'barbell' ? 0.6 : 1
     if (a.level === 'advanced' && (e.equip === 'barbell' || e.equip === 'dumbbell')) s *= 1.4
     // 筋力・パワーが目的ならメイン種目はバーベルを強く優先する
@@ -285,13 +296,26 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
     sets = clamp(sets, 2, 6)
     let rest = base.rest
     if (a.minutes <= 30) rest = roundRest(rest * 0.75)
+    // 自重種目は1セットの消耗が小さいので、長すぎる休憩はとらない
+    if (ex.equip === 'bodyweight') rest = Math.min(rest, 120)
     let reps = base.reps
     let n = base.n
     if (a.goal === 'strength' && role === 'main' && lvl === 3) {
       reps = '3〜5'
       n = 4
     }
-    return { ex, role, rx: { sets, reps, n, rest, rir }, fatigued }
+    // 自重種目は重さで調整できないので、回数とテンポで負荷を決める
+    if (ex.equip === 'bodyweight' && ex.unit !== 'sec' && ex.slot !== 'back.vpull' && role !== 'power') {
+      if (a.goal === 'muscle') {
+        reps = '12〜20'
+        n = 16
+      } else if (a.goal === 'strength') {
+        reps = '6〜10'
+        n = 8
+      }
+    }
+    const tempo = isAway(a.env) && ex.equip === 'bodyweight' && a.goal === 'strength' && ex.unit !== 'sec' && role !== 'power'
+    return { ex, role, rx: { sets, reps, n: tempo ? n + 4 : n, rest, rir }, fatigued, tempo }
   })
 
   // ---- 時間配分 ----
@@ -307,6 +331,7 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
     if (a.goal !== 'stamina' && p.role !== 'main' && setsOf(kept, p.ex.muscle) + p.rx.sets > setCap(p.ex.muscle)) continue
     kept.push(p)
   }
+  // 入れる種目は優先順 (kept の順) で決め、実施順だけ大きい種目から並べ替える
   const capped = sortByKind(kept)
 
   let groups: Planned[][] = []
@@ -320,8 +345,8 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
     const forcePairs = a.goal === 'lean'
     const keepMain = a.goal === 'strength' || a.goal === 'athletic' || a.goal === 'muscle'
     const fit = (pair: boolean) => {
-      for (let n = Math.min(capped.length, maxCount); n >= 1; n--) {
-        const list = capped.slice(0, n)
+      for (let n = Math.min(kept.length, maxCount); n >= 1; n--) {
+        const list = sortByKind(kept.slice(0, n))
         const g = pair ? pairUp(list, keepMain) : list.map(p => [p])
         if (totalSec(g, a.goal) <= budget) return g
       }
@@ -378,13 +403,22 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
   if (finisher) blocks.push(finisher)
   // 筋トレで使い切れなかった時間は、回復を助ける低強度の有酸素に回す
   const spareMin = Math.floor(budget / 60) - mainBlock.minutes
-  if (spareMin >= 6) blocks.push(easyCardio(Math.min(spareMin, a.minutes >= 75 ? 30 : 20), 'gym', a.injuries))
+  if (spareMin >= 6) blocks.push(easyCardio(Math.min(spareMin, a.minutes >= 75 ? 30 : 20), a))
 
   const used = groups.flat()
   const worked = [...new Set(used.flatMap(p => [p.ex.muscle, ...(p.ex.also ?? [])]))]
 
   // ---- トレーナーの解説 ----
   why.push(GOAL_WHY[a.goal])
+  if (isAway(a.env)) {
+    const gear = a.gear.length ? `手持ちの道具 (${a.gear.map(g => GEAR_LABEL[g]).join('・')})` : '道具なしの自重'
+    why.push(
+      `${a.env === 'home' ? '自宅' : '野外'}で${gear}でできる種目だけで組んでいます。` +
+        (a.quiet ? 'ジャンプや足音の出る種目は外しました。' : '') +
+        (a.env === 'outdoor' ? '床に寝る種目はタオルやレジャーシートを敷いて行いましょう。' : '') +
+        (used.some(p => p.ex.equip === 'bodyweight') ? '自重種目は重さの代わりに「回数」と「ゆっくり下ろすテンポ」で負荷をかけます。' : ''),
+    )
+  }
   if (groups.some(g => g.length > 1) && a.goal !== 'lean' && a.goal !== 'stamina') {
     why.push(`${a.minutes}分に収めるため、部位が重ならない種目同士をスーパーセットにして休憩時間を有効活用しています。`)
   }
@@ -401,12 +435,18 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
   }
   injuryCautions(a, cautions)
 
-  const next = [
-    a.goal === 'strength'
-      ? '全セットを予定回数でこなせたら、次回はメイン種目を+2.5kg。RIRが守れなければ重量は据え置き。'
-      : 'ダブルプログレッション: 全セットで回数の上限までできたら、次回は重量を1段階上げ (バーベル+2.5kg / ダンベル+1〜2kg)、回数は下限からやり直す。',
-    '使った重量をメモしておくと、次回の重量選びに迷いません。',
-  ]
+  const bodyweightOnly = isAway(a.env) && used.every(p => p.ex.equip === 'bodyweight')
+  const next = bodyweightOnly
+    ? [
+        '自重トレの伸ばし方: 全セットで回数の上限までできたら、次回は「3秒かけて下ろす」「1秒止める」か、1段階難しいバリエーション (例: 膝つき → 通常 → 足を台に) に進む。',
+        'できた回数をメモしておくと、前回より1回多くを狙えます。',
+      ]
+    : [
+        a.goal === 'strength'
+          ? '全セットを予定回数でこなせたら、次回はメイン種目の重量を1段階上げる。RIRが守れなければ据え置き。'
+          : 'ダブルプログレッション: 全セットで回数の上限までできたら、次回は重量 (チューブなら強度) を1段階上げ、回数は下限からやり直す。',
+        '使った重量・回数をメモしておくと、次回の選び方に迷いません。',
+      ]
   if (!full && a.focus.length === 0) next.push('次回も「おまかせ」を選ぶと、今日鍛えていない部位を優先して組みます。')
 
   return {
@@ -436,6 +476,7 @@ function toItem(p: Planned, a: Answers, tag: string, inPairFirst: boolean): Item
   }
   if (a.goal === 'muscle' && p.role === 'iso' && a.level === 'advanced') details.push('最終セットはドロップセット (重量を2割落として限界まで)')
   if (p.fatigued) details.push('疲労が残っている部位なので控えめに')
+  if (p.tempo) details.push('3秒かけて戻し、いちばんきつい位置で1秒止める (自重でも筋力に効かせる)')
   // 1RMからの重量計算は、重量を細かく管理する目的のときだけ出す
   const usesPercent = a.goal === 'strength' || a.goal === 'muscle' || a.goal === 'athletic'
   const pct = usesPercent && p.ex.lift && (p.role === 'main' || p.role === 'compound') ? percentFor(p.rx.n, p.rx.rir) : undefined
@@ -491,7 +532,9 @@ function buildCircuit(a: Answers, planned: Planned[], budget: number) {
       detail:
         p.ex.unit === 'sec'
           ? 'フォームが崩れたら膝をついて続ける'
-          : `${workS}秒で12〜15回できる重さ (自重種目はできるだけ多く)。息が上がっても止まらないペースで`,
+          : p.ex.equip === 'bodyweight'
+            ? `${workS}秒でできるだけ多く。息が上がっても止まらないペースで`
+            : `${workS}秒で12〜15回できる重さで。息が上がっても止まらないペースで`,
       tag: String(i + 1),
       cues: p.ex.cues,
       swappable: true,
@@ -505,18 +548,17 @@ function buildCircuit(a: Answers, planned: Planned[], budget: number) {
 function planFinisher(a: Answers, rng: Rng): Block | undefined {
   const B = a.minutes - BOOKEND_MIN
   const tired = a.condition === 'tired'
-  const knee = a.injuries.includes('knee')
   if (a.goal === 'lean') {
     const min = a.minutes <= 20 ? 4 : a.minutes >= 60 ? 8 : 6
-    if (tired || (min >= 8 && rng() < 0.4)) return incline(min, '脂肪燃焼ゾーン')
-    return bikeIntervals(min, a.level === 'beginner' ? [30, 30] : [20, 40], 'HIIT')
+    if (tired || (min >= 8 && rng() < 0.4)) return steady(min, '脂肪燃焼ゾーン', a)
+    return intervals(min, a.level === 'beginner' ? [30, 30] : [20, 40], 'HIIT', a)
   }
   if (a.goal === 'stamina') {
     const min = clamp(Math.round((B * 0.3) / 2) * 2, 6, 16)
-    return bikeIntervals(min, [60, 60], knee ? 'インターバル (エアロバイク)' : 'インターバル')
+    return intervals(min, [60, 60], 'インターバル', a)
   }
-  if (a.goal === 'athletic' && a.minutes >= 45) return bikeIntervals(6, [10, 50], 'スプリント')
-  if (a.goal === 'health' && a.minutes >= 45) return incline(a.minutes >= 75 ? 12 : 8, '有酸素')
+  if (a.goal === 'athletic' && a.minutes >= 45) return intervals(6, [10, 50], 'スプリント', a)
+  if (a.goal === 'health' && a.minutes >= 45) return steady(a.minutes >= 75 ? 12 : 8, '有酸素', a)
   return undefined
 }
 
@@ -540,12 +582,12 @@ export function injuryCautions(a: Answers, cautions: string[]) {
   if (a.injuries.length) cautions.push('痛みが出たらその種目は中止し、続く場合は医療機関・専門家に相談してください。')
 }
 
-/** 施設型ジムの種目を、同じ枠の別の種目に入れ替える */
+/** 施設型ジム・自宅・野外の種目を、同じ枠の別の種目に入れ替える */
 export function gymAlternative(id: string, a: Answers, exclude: Set<string>, rng: Rng): GymExercise | undefined {
   const cur = GYM_BY_ID.get(id)
   if (!cur) return undefined
   const lvl = LEVEL_NUM[a.level]
-  const ok = (e: GymExercise) => e.level <= lvl && !exclude.has(e.id) && !e.avoid.some(i => a.injuries.includes(i))
+  const ok = (e: GymExercise) => e.level <= lvl && !exclude.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)) && availableFor(e, a)
   const same = GYM_EXERCISES.filter(e => e.slot === cur.slot && ok(e))
   const fallback = GYM_EXERCISES.filter(e => e.muscle === cur.muscle && e.kind === cur.kind && ok(e))
   const pool = same.length ? same : fallback

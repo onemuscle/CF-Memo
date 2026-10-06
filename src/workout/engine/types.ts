@@ -3,8 +3,11 @@
 
 import type { GenContext } from './common'
 
-/** gym = 24時間ジムなどの施設型ジム / box = CrossFit ボックス */
-export type Env = 'gym' | 'box'
+/** gym = 24時間ジムなどの施設型ジム / box = CrossFit ボックス / home = 自宅 / outdoor = 公園などの野外 */
+export type Env = 'gym' | 'box' | 'home' | 'outdoor'
+
+/** 自宅・野外で使える道具や環境 */
+export type Gear = 'dumbbell' | 'band' | 'kettlebell' | 'bar' | 'bench' | 'stairs'
 
 /** なりたい姿 */
 export type Goal = 'lean' | 'muscle' | 'strength' | 'stamina' | 'athletic' | 'health'
@@ -31,6 +34,10 @@ export interface Answers {
   condition: Condition
   injuries: Injury[]
   scale: Scale
+  /** 自宅・野外で使える道具 (施設型ジム・CrossFit では使わない) */
+  gear: Gear[]
+  /** ジャンプ・足音を控えたい (集合住宅の自宅など) */
+  quiet: boolean
 }
 
 /** 前回の「きつさ」評価。次回のボリューム調整に使う */

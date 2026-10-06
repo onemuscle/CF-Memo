@@ -5,7 +5,7 @@ import { GYM_EXERCISES } from './exercises'
 import { gymAlternative, buildGym } from './gym'
 import { ENV_LABEL, GOAL_LABEL, GOAL_SHORT, MUSCLES } from './labels'
 import { makeRng } from './rng'
-import type { Answers, Condition, Env, Goal, HistoryEntry, Injury, Level, Muscle, Rating, Scale, Workout } from './types'
+import type { Answers, Condition, Env, Gear, Goal, HistoryEntry, Injury, Level, Muscle, Rating, Scale, Workout } from './types'
 import { buildCooldown, buildWarmup } from './warmup'
 
 export * from './types'
@@ -20,7 +20,7 @@ export function generateWorkout(a: Answers, seed: number, gen: GenContext = EMPT
   const body = a.env === 'box' ? buildBox(a, rng, gen) : buildGym(a, rng, gen)
 
   const warmFocus = body.focus.length ? body.focus : body.worked
-  const warmup = buildWarmup({ env: a.env, focus: warmFocus, injuries: a.injuries, rng, firstMain: body.firstMain })
+  const warmup = buildWarmup({ env: a.env, focus: warmFocus, injuries: a.injuries, quiet: a.quiet, rng, firstMain: body.firstMain })
   const cooldown = buildCooldown({ focus: warmFocus, worked: body.worked, injuries: a.injuries, rng })
   const blocks = [warmup, ...body.blocks, cooldown]
   const total = blocks.reduce((s, b) => s + b.minutes, 0)
@@ -43,7 +43,10 @@ export function generateWorkout(a: Answers, seed: number, gen: GenContext = EMPT
     focus: body.focus,
     focusLabel,
     title: a.env === 'box' ? `WOD "${wodName}"` : `${focusLabel}の日`,
-    subtitle: a.env === 'box' ? `${boxBody?.subtitle} / ${focusLabel}` : `${GOAL_SHORT[a.goal]}メニュー`,
+    subtitle:
+      a.env === 'box'
+        ? `${boxBody?.subtitle} / ${focusLabel}`
+        : `${GOAL_SHORT[a.goal]}メニュー${a.env === 'gym' ? '' : ` · ${ENV_LABEL[a.env]}`}`,
     wodName,
     blocks,
     totalMinutes: total,
@@ -107,7 +110,9 @@ export function exerciseIds(w: Workout): string[] {
 // 回答・シード・履歴の要約を短い文字列にする。例: 0.1.cb.45.1.1.x.0.k3x9z.1x2xxxx...
 // 履歴の要約 = 前回の評価(1文字) + 部位ごとの経過日数(7文字) + 直近の種目(ID 3文字 + 日数 1文字 ずつ)
 
-const ENVS: Env[] = ['gym', 'box']
+// 末尾にだけ追加する (並びを変えると古い共有URLが別の内容になる)
+const ENVS: Env[] = ['gym', 'box', 'home', 'outdoor']
+const GEAR_CODE: Record<Gear, string> = { dumbbell: 'd', band: 't', kettlebell: 'k', bar: 'b', bench: 'c', stairs: 's' }
 const GOALS: Goal[] = ['lean', 'muscle', 'strength', 'stamina', 'athletic', 'health']
 const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced']
 const CONDS: Condition[] = ['great', 'normal', 'tired']
@@ -161,7 +166,8 @@ export function encodeShare(a: Answers, seed: number, gen: GenContext = EMPTY_CO
     LEVELS.indexOf(a.level),
     CONDS.indexOf(a.condition),
     a.injuries.map(i => INJ.indexOf(i)).join('') || 'x',
-    SCALES.indexOf(a.scale),
+    // 重量基準の数字の後ろに、道具 (英字) と「静かに」(q) を続ける
+    `${SCALES.indexOf(a.scale)}${a.gear.map(g => GEAR_CODE[g]).join('')}${a.quiet ? 'q' : ''}`,
     seed.toString(36),
   ].join('.')
   const ctx = encodeContext(gen)
@@ -178,13 +184,15 @@ export function decodeShare(code: string): { answers: Answers; seed: number; con
   const level = LEVELS[Number(p[4])]
   const condition = CONDS[Number(p[5])]
   const injuries = p[6] === 'x' ? [] : [...p[6]].map(c => INJ[Number(c)]).filter(Boolean)
-  const scale = SCALES[Number(p[7])]
+  const scale = SCALES[Number(p[7][0])]
+  const gear = [...p[7].slice(1)].map(c => (Object.keys(GEAR_CODE) as Gear[]).find(g => GEAR_CODE[g] === c)).filter((g): g is Gear => !!g)
+  const quiet = p[7].includes('q')
   const seed = parseInt(p[8], 36)
   const context = p[9] ? decodeContext(p[9]) : EMPTY_CONTEXT
   if (!env || !goal || !level || !condition || !scale || !context || !Number.isFinite(seed) || !(minutes >= 15 && minutes <= 120)) {
     return undefined
   }
-  return { answers: { env, goal, focus, minutes, level, condition, injuries, scale }, seed, context }
+  return { answers: { env, goal, focus, minutes, level, condition, injuries, scale, gear, quiet }, seed, context }
 }
 
 /** いま表示しているメニューの共有コード */
