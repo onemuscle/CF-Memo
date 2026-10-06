@@ -17,9 +17,21 @@ interface Props {
   onHistory: () => void
 }
 
-const SAMPLES: Record<Env, Answers> = {
-  gym: { env: 'gym', goal: 'lean', focus: ['glutes', 'back'], minutes: 45, level: 'intermediate', condition: 'normal', injuries: [], scale: 'men' },
-  box: { env: 'box', goal: 'athletic', focus: [], minutes: 60, level: 'intermediate', condition: 'normal', injuries: [], scale: 'men' },
+const BASE = { level: 'intermediate', condition: 'normal', injuries: [], scale: 'men', gear: [], quiet: false } as const
+
+const SAMPLES: Record<Env, { answers: Answers; seed: number; note?: string }> = {
+  gym: { answers: { ...BASE, env: 'gym', goal: 'lean', focus: ['glutes', 'back'], minutes: 45, injuries: [], gear: [] }, seed: 20261006 },
+  box: { answers: { ...BASE, env: 'box', goal: 'athletic', focus: [], minutes: 60, injuries: [], gear: [] }, seed: 777 },
+  home: {
+    answers: { ...BASE, env: 'home', goal: 'lean', focus: [], minutes: 30, injuries: [], gear: ['band'], quiet: true },
+    seed: 3030,
+    note: 'チューブあり・静かに',
+  },
+  outdoor: {
+    answers: { ...BASE, env: 'outdoor', goal: 'stamina', focus: [], minutes: 45, injuries: [], gear: ['bar', 'bench', 'stairs'] },
+    seed: 4545,
+    note: '鉄棒・ベンチ・坂道あり',
+  },
 }
 
 export const FAQ = [
@@ -34,6 +46,10 @@ export const FAQ = [
   {
     q: 'ウォームアップやストレッチも入っていますか?',
     a: 'はい。毎回、その日に使う部位に合わせたウォームアップ (4分) とクールダウンのストレッチ (2分)、計6分が最初と最後に入ります。選んだ時間にはこの6分も含まれます。',
+  },
+  {
+    q: '自宅や公園でも使えますか?',
+    a: 'はい。自宅なら手持ちの道具 (なし / ダンベル / チューブ / 椅子 / 懸垂バーなど) と「ジャンプや足音を控えたいか」を、野外なら鉄棒・ベンチ・坂道などの有無を聞いて、その場でできる種目だけで組みます。道具がなくても、回数とテンポで負荷をかける自重メニューになります。',
   },
   {
     q: 'CrossFit の WOD にも対応していますか?',
@@ -51,7 +67,9 @@ export const FAQ = [
 
 export default function Landing({ last, current, history, goal, onStart, onQuick, onResume, onHistory }: Props) {
   const [sampleEnv, setSampleEnv] = useState<Env>('gym')
-  const sample = useMemo(() => generateWorkout(SAMPLES[sampleEnv], sampleEnv === 'gym' ? 20261006 : 777), [sampleEnv])
+  const sampleDef = SAMPLES[sampleEnv]
+  const sampleA = sampleDef.answers
+  const sample = useMemo(() => generateWorkout(sampleDef.answers, sampleDef.seed), [sampleDef])
   const week = thisWeekCount(history)
   const streak = weekStreak(history, goal)
   const resumable = current && current.startedAt && Date.now() - current.startedAt < 1000 * 60 * 60 * 12
@@ -70,7 +88,7 @@ export default function Landing({ last, current, history, goal, onStart, onQuick
       </header>
 
       <section className="hero">
-        <p className="hero-eyebrow">施設型ジム / CrossFit 対応・無料</p>
+        <p className="hero-eyebrow">ジム / CrossFit / 自宅 / 野外 対応・無料</p>
         <h1 className="hero-h1">
           今日やるべきメニューが、
           <br />
@@ -83,7 +101,7 @@ export default function Landing({ last, current, history, goal, onStart, onQuick
         <button className="btn btn-primary btn-xl" onClick={onStart}>
           今日のメニューを作る <span aria-hidden>→</span>
         </button>
-        <p className="hero-micro">登録不要 · 7問 · 約30秒</p>
+        <p className="hero-micro">登録不要 · タップだけ · 約30秒</p>
       </section>
 
       {(resumable || last || history.length > 0) && (
@@ -143,8 +161,8 @@ export default function Landing({ last, current, history, goal, onStart, onQuick
           <li>
             <b>1</b>
             <div>
-              <strong>7つの質問に答える</strong>
-              <p>ジムかCrossFitか、なりたい姿、部位、時間、レベル、体調、痛み。すべてタップだけ。</p>
+              <strong>かんたんな質問に答える</strong>
+              <p>場所 (ジム・CrossFit・自宅・野外)、なりたい姿、部位、時間、レベル、体調、痛み。すべてタップだけ。</p>
             </div>
           </li>
           <li>
@@ -169,7 +187,7 @@ export default function Landing({ last, current, history, goal, onStart, onQuick
           <span>SAMPLE</span>こんなメニューが出てきます
         </h2>
         <div className="seg" role="tablist">
-          {(['gym', 'box'] as Env[]).map(e => (
+          {(['gym', 'box', 'home', 'outdoor'] as Env[]).map(e => (
             <button key={e} role="tab" aria-selected={sampleEnv === e} className={sampleEnv === e ? 'on' : ''} onClick={() => setSampleEnv(e)}>
               {ENV_LABEL[e]}
             </button>
@@ -177,8 +195,9 @@ export default function Landing({ last, current, history, goal, onStart, onQuick
         </div>
         <div className={`sample env-${sampleEnv}`}>
           <div className="sample-cond">
-            条件: {GOAL_LABEL[SAMPLES[sampleEnv].goal]} · {SAMPLES[sampleEnv].focus.length ? musclesText(SAMPLES[sampleEnv].focus) : 'おまかせ'} ·{' '}
-            {SAMPLES[sampleEnv].minutes}分 · {LEVEL_LABEL[SAMPLES[sampleEnv].level]}
+            条件: {GOAL_LABEL[sampleA.goal]} · {sampleA.focus.length ? musclesText(sampleA.focus) : 'おまかせ'} · {sampleA.minutes}分 ·{' '}
+            {LEVEL_LABEL[sampleA.level]}
+            {sampleDef.note && ` · ${sampleDef.note}`}
           </div>
           <div className="sample-title">{sample.title}</div>
           <div className="sample-sub">{sample.subtitle}</div>

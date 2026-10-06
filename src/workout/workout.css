@@ -25,6 +25,18 @@
   --accent-soft: rgba(255, 122, 47, 0.14);
 }
 
+.env-home {
+  --accent: #5fd4c8;
+  --accent-ink: #04201d;
+  --accent-soft: rgba(95, 212, 200, 0.14);
+}
+
+.env-outdoor {
+  --accent: #ffd23f;
+  --accent-ink: #1d1600;
+  --accent-soft: rgba(255, 210, 63, 0.14);
+}
+
 * {
   margin: 0;
   padding: 0;

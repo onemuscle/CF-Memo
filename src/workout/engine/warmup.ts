@@ -37,13 +37,22 @@ const CORE: Drill[] = [
 ]
 
 /** 心拍を上げる最初の1分 */
-function cardioDrill(env: Env, injuries: Injury[], rng: Rng): Item {
+function cardioDrill(env: Env, injuries: Injury[], quiet: boolean, rng: Rng): Item {
+  const knee = injuries.includes('knee')
   const options =
     env === 'box'
       ? ['ロー (ローイング)', 'エアバイク', 'ロー (ローイング)']
-      : injuries.includes('knee')
-        ? ['エアロバイク']
-        : ['エアロバイク', 'トレッドミル早歩き', 'クロストレーナー']
+      : env === 'home'
+        ? quiet || knee
+          ? ['その場足踏み + 腕回し']
+          : ['その場足踏み + 腕回し', 'ジャンピングジャック']
+        : env === 'outdoor'
+          ? knee
+            ? ['早歩き']
+            : ['軽いジョグ', '早歩き → 軽いジョグ']
+          : knee
+            ? ['エアロバイク']
+            : ['エアロバイク', 'トレッドミル早歩き', 'クロストレーナー']
   return {
     id: 'wu-cardio',
     name: pick(rng, options),
@@ -79,11 +88,12 @@ export function buildWarmup(opts: {
   env: Env
   focus: Muscle[]
   injuries: Injury[]
+  quiet?: boolean
   rng: Rng
   /** 最初に行うメイン種目 (軽い重さで動きを確認する) */
   firstMain?: string
 }): Block {
-  const { env, focus, injuries, rng, firstMain } = opts
+  const { env, focus, injuries, rng, firstMain, quiet = false } = opts
   const taken = new Set<string>()
   const r = region(focus)
   const mobility =
@@ -94,7 +104,7 @@ export function buildWarmup(opts: {
         : [...choose(rng, LOWER, injuries, 1, taken), ...choose(rng, UPPER, injuries, 1, taken)]
   if (focus.includes('core') && mobility.length > 1) mobility[1] = choose(rng, CORE, injuries, 1, taken)[0] ?? mobility[1]
 
-  const items: Item[] = [cardioDrill(env, injuries, rng), ...mobility.map(d => drillItem(d, 45))]
+  const items: Item[] = [cardioDrill(env, injuries, quiet, rng), ...mobility.map(d => drillItem(d, 45))]
 
   // 最後の90秒: 今日の動きに近い活性化 + メイン種目の確認
   const activation = choose(rng, r === 'upper' ? [...UPPER, ...CORE] : [...LOWER, ...CORE], injuries, 1, taken)[0]
@@ -104,7 +114,9 @@ export function buildWarmup(opts: {
     name: firstMain ? `${firstMain} (軽めで動作確認)` : 'インチワーム + エアスクワット',
     prescription: firstMain ? '5〜10回' : '5回 + 10回',
     detail: firstMain
-      ? '今日いちばん重い種目を、軽い負荷 (空のバー・軽いダンベル・補助付き) で'
+      ? env === 'home' || env === 'outdoor'
+        ? '今日のメイン種目を、浅め・ゆっくりで動きを確認'
+        : '今日いちばん重い種目を、軽い負荷 (空のバー・軽いダンベル・補助付き) で'
       : '全身をつなげて動かす',
     seconds: WARMUP_SEC - items.reduce((s, i) => s + (i.seconds ?? 0), 0),
   })

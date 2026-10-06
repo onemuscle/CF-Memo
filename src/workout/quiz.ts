@@ -29,7 +29,50 @@ export const STEPS: Step[] = [
     options: [
       { value: 'gym', label: '施設型ジム', desc: '24時間ジム・フィットネスクラブ。マシン・ダンベル・ケーブルが使える', emoji: '🏋️' },
       { value: 'box', label: 'CrossFit', desc: 'ボックスで WOD。バーベル・ケトルベル・ロー・プルアップバー', emoji: '🔥' },
+      { value: 'home', label: '自宅', desc: '道具なしでもOK。ダンベルやチューブがあれば活用', emoji: '🏠' },
+      { value: 'outdoor', label: '野外', desc: '公園・河川敷など。鉄棒・ベンチ・坂道も活用', emoji: '🌳' },
     ],
+  },
+  {
+    key: 'gear',
+    title: '家にある道具は?',
+    sub: '複数選択OK。あるものに合わせて種目を選びます',
+    multi: true,
+    when: a => a.env === 'home',
+    options: [
+      { value: 'none', label: 'なにもない', desc: '自重だけで組みます', emoji: '🙌', exclusive: true },
+      { value: 'dumbbell', label: 'ダンベル', desc: '可変式もOK' },
+      { value: 'band', label: 'チューブ', desc: 'トレーニング用ゴムバンド' },
+      { value: 'kettlebell', label: 'ケトルベル' },
+      { value: 'bench', label: '椅子・ベンチ', desc: '動かない丈夫なもの' },
+      { value: 'bar', label: '懸垂バー', desc: 'ドア枠・ぶら下がり健康器' },
+    ],
+    layout: 'grid',
+  },
+  {
+    key: 'quiet',
+    title: 'ジャンプや足音は大丈夫?',
+    sub: '集合住宅なら静かなメニューにできます',
+    when: a => a.env === 'home',
+    options: [
+      { value: 'no', label: '大丈夫', desc: 'ジャンプ系もOK', emoji: '👟' },
+      { value: 'yes', label: '静かにしたい', desc: 'ジャンプ・ダッシュなしで組む', emoji: '🤫' },
+    ],
+  },
+  {
+    key: 'gear',
+    title: '使える設備・道具は?',
+    sub: '複数選択OK。公園の遊具や地形も活用します',
+    multi: true,
+    when: a => a.env === 'outdoor',
+    options: [
+      { value: 'none', label: 'なにもない', desc: '平らな場所だけで組みます', emoji: '🙌', exclusive: true },
+      { value: 'bar', label: '鉄棒', desc: '懸垂・斜め懸垂・ぶら下がり' },
+      { value: 'bench', label: 'ベンチ・段差', desc: '足を乗せる・踏み台' },
+      { value: 'stairs', label: '階段・坂道', desc: 'ダッシュ・ウォークに' },
+      { value: 'band', label: 'チューブ', desc: '持っていく場合' },
+    ],
+    layout: 'grid',
   },
   {
     key: 'goal',
@@ -137,5 +180,7 @@ export function completeAnswers(a: Partial<Answers>): Answers | undefined {
     condition: a.condition,
     injuries: a.injuries ?? [],
     scale: a.scale ?? 'men',
+    gear: a.env === 'home' || a.env === 'outdoor' ? a.gear ?? [] : [],
+    quiet: a.env === 'home' ? !!a.quiet : false,
   }
 }

@@ -19,12 +19,13 @@ function selected(step: Step, a: Partial<Answers>, touched: Set<string>): string
     // 空配列 = おまかせ / なし (一度選んだ場合だけ選択状態に見せる)
     return touched.has(step.key) ? [step.options.find(o => o.exclusive)!.value] : []
   }
+  if (typeof v === 'boolean') return [v ? 'yes' : 'no']
   return [String(v)]
 }
 
 export default function Quiz({ initial, onDone, onExit }: Props) {
   const [a, setA] = useState<Partial<Answers>>(initial ?? {})
-  const [touched, setTouched] = useState<Set<string>>(() => new Set(initial ? ['focus', 'injuries'] : []))
+  const [touched, setTouched] = useState<Set<string>>(() => new Set(initial ? ['focus', 'injuries', 'gear'] : []))
   const [index, setIndex] = useState(0)
   const timer = useRef<number>()
   const steps = useMemo(() => activeSteps(a), [a])
@@ -70,8 +71,18 @@ export default function Quiz({ initial, onDone, onExit }: Props) {
       }
       return
     }
-    const v = step.key === 'minutes' ? Number(value) : value
+    const v = step.key === 'minutes' ? Number(value) : step.key === 'quiet' ? value === 'yes' : value
     const updated = { ...a, [step.key]: v } as Partial<Answers>
+    // 場所を変えたら、前の場所で選んだ道具は使わない
+    if (step.key === 'env' && v !== a.env) {
+      delete updated.gear
+      delete updated.quiet
+      setTouched(t => {
+        const n = new Set(t)
+        n.delete('gear')
+        return n
+      })
+    }
     setA(updated)
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => next(updated), 220)
@@ -86,7 +97,7 @@ export default function Quiz({ initial, onDone, onExit }: Props) {
   const progress = ((index + 1) / steps.length) * 100
 
   return (
-    <div className={`quiz ${a.env === 'box' ? 'env-box' : ''}`}>
+    <div className={`quiz ${a.env ? `env-${a.env}` : ''}`}>
       <div className="quiz-top">
         <button className="icon-btn" onClick={back} aria-label="戻る">
           <BackIcon size={22} />
@@ -99,7 +110,7 @@ export default function Quiz({ initial, onDone, onExit }: Props) {
         </span>
       </div>
 
-      <div className="quiz-body" key={step.key}>
+      <div className="quiz-body" key={`${step.key}-${index}`}>
         <h1 className="quiz-title">{step.title}</h1>
         {step.sub && <p className="quiz-sub">{step.sub}</p>}
 

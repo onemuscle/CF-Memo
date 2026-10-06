@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { swapItem, type Block, type Item, type Workout } from '../engine'
-import { CONDITION_LABEL, ENV_LABEL, GOAL_LABEL, LEVEL_LABEL } from '../engine/labels'
+import { CONDITION_LABEL, ENV_LABEL, GEAR_LABEL, GOAL_LABEL, LEVEL_LABEL, isAway } from '../engine/labels'
 import { newSeed } from '../engine/rng'
 import { loadOneRm, saveOneRm, type Current } from '../storage'
 import { track } from '../track'
@@ -121,6 +121,8 @@ export default function Result({ current, shared, shareUrl, onChange, onRegenera
         <p className="hero-subtitle">{w.subtitle}</p>
         <div className="chips">
           <span className="chip">{ENV_LABEL[a.env]}</span>
+          {isAway(a.env) && <span className="chip">{a.gear.length ? a.gear.map(g => GEAR_LABEL[g]).join('・') : '道具なし'}</span>}
+          {a.quiet && <span className="chip">静かに</span>}
           <span className="chip">{GOAL_LABEL[a.goal]}</span>
           <span className="chip">{w.focusLabel}</span>
           <span className="chip">{LEVEL_LABEL[a.level]}</span>

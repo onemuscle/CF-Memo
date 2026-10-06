@@ -29,7 +29,15 @@ function write(key: string, value: unknown) {
   }
 }
 
-export const loadAnswers = () => read<Answers | null>(KEY.answers, null)
+/** 以前のバージョンで保存した回答には道具の項目がないので補う */
+export function withDefaults(a: Answers): Answers {
+  return { ...a, gear: a.gear ?? [], quiet: a.quiet ?? false }
+}
+
+export function loadAnswers(): Answers | null {
+  const a = read<Answers | null>(KEY.answers, null)
+  return a ? withDefaults(a) : null
+}
 export const saveAnswers = (a: Answers) => write(KEY.answers, a)
 
 /** 新しい順 */
@@ -50,7 +58,10 @@ export interface Current {
   scores?: Record<string, string>
   startedAt?: number
 }
-export const loadCurrent = () => read<Current | null>(KEY.current, null)
+export function loadCurrent(): Current | null {
+  const c = read<Current | null>(KEY.current, null)
+  return c ? { ...c, workout: { ...c.workout, answers: withDefaults(c.workout.answers) } } : null
+}
 export const saveCurrent = (c: Current | null) => write(KEY.current, c ?? undefined)
 
 export const loadOneRm = () => read<Record<string, number>>(KEY.oneRm, {})

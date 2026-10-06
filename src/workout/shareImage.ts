@@ -4,6 +4,14 @@
 import { ENV_LABEL, GOAL_LABEL } from './engine/labels'
 import type { Workout } from './engine'
 
+/** 場所ごとのアクセント色 (workout.css の .env-* と同じ) */
+const ACCENT: Record<Workout['answers']['env'], [string, string]> = {
+  gym: ['#c6ff3e', 'rgba(198,255,62,0.28)'],
+  box: ['#ff7a2f', 'rgba(255,122,47,0.35)'],
+  home: ['#5fd4c8', 'rgba(95,212,200,0.3)'],
+  outdoor: ['#ffd23f', 'rgba(255,210,63,0.3)'],
+}
+
 const W = 1080
 const H = 1350
 
@@ -36,7 +44,7 @@ export async function renderShareImage(
   canvas.height = H
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
-  const accent = w.answers.env === 'box' ? '#ff7a2f' : '#c6ff3e'
+  const [accent, glowColor] = ACCENT[w.answers.env]
   const display = '"Oswald", "Noto Sans JP", sans-serif'
   const body = '"Noto Sans JP", "Inter", sans-serif'
 
@@ -44,7 +52,7 @@ export async function renderShareImage(
   ctx.fillStyle = '#0a0b0e'
   ctx.fillRect(0, 0, W, H)
   const glow = ctx.createRadialGradient(W * 0.85, 0, 0, W * 0.85, 0, W)
-  glow.addColorStop(0, w.answers.env === 'box' ? 'rgba(255,122,47,0.35)' : 'rgba(198,255,62,0.28)')
+  glow.addColorStop(0, glowColor)
   glow.addColorStop(1, 'rgba(0,0,0,0)')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, W, H)

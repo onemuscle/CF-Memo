@@ -144,7 +144,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${(view === 'result' || doneOpen) && current?.workout.answers.env === 'box' ? 'env-box' : ''}`}>
+    <div className={`app-shell ${(view === 'result' || doneOpen) && current ? `env-${current.workout.answers.env}` : ''}`}>
       {view === 'home' && (
         <Landing
           last={last}
