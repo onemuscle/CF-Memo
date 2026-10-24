@@ -477,7 +477,7 @@ function Card({
 // ---------------------------------------------------------------- PM 詳細
 
 /** 補助トレの場所 (Jexer / 家ジム)。選択はIndexedDBに保存して次回も引き継ぐ */
-function useGymLocation(): [GymLocation, (l: GymLocation) => void] {
+export function useGymLocation(): [GymLocation, (l: GymLocation) => void] {
   const [location, setLocation] = useState<GymLocation>('jexer')
   useEffect(() => {
     getSetting(GYM_SETTING).then(v => setLocation(gymLocationOf(v)))
