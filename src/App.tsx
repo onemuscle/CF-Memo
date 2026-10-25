@@ -8,10 +8,11 @@ import { PRList, MovementDetail, PRForm } from './components/PRPage'
 import WodScan from './components/WodScan'
 import TodayPage from './components/TodayPage'
 import PlanOverview from './components/PlanOverview'
+import PartsWorkout from './components/PartsWorkout'
 import { memoDraft } from './plan/plan'
-import { NoteIcon, TrophyIcon, ScanIcon, TodayIcon } from './components/Icons'
+import { NoteIcon, TrophyIcon, ScanIcon, TodayIcon, DumbbellIcon } from './components/Icons'
 
-type Tab = 'today' | 'memos' | 'prs' | 'scan'
+type Tab = 'today' | 'parts' | 'memos' | 'prs' | 'scan'
 
 type View =
   | { name: 'home' }
@@ -23,6 +24,7 @@ type View =
 
 const TABS: { key: Tab; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
   { key: 'today', label: '今日', icon: TodayIcon },
+  { key: 'parts', label: '部位トレ', icon: DumbbellIcon },
   { key: 'memos', label: 'メモ', icon: NoteIcon },
   { key: 'prs', label: 'PR記録', icon: TrophyIcon },
   { key: 'scan', label: 'スキャン', icon: ScanIcon },
@@ -134,6 +136,16 @@ export default function App() {
           <TodayPage
             onWriteMemo={day => setView({ name: 'memo-edit', draft: memoDraft(day) })}
             onOpenPlan={() => setView({ name: 'plan' })}
+          />
+        )
+      case 'parts':
+        return (
+          <PartsWorkout
+            onSaved={async memoId => {
+              await refresh()
+              setTab('memos')
+              setView({ name: 'memo-detail', id: memoId })
+            }}
           />
         )
       case 'memos':
