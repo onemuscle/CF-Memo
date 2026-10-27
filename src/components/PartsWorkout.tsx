@@ -14,8 +14,19 @@ import { GYM_LABEL } from '../plan/plan'
 import type { GymLocation } from '../plan/planData'
 import { SubFold, useGymLocation } from './TodayPage'
 
+/** 選べる場所と、その場所でのエンジンへの回答 */
+export interface PartsPlace {
+  key: string
+  label: string
+  answers: (muscles: Muscle[], minutes: number) => Answers
+}
+
 interface Props {
   onSaved: (memoId: string) => void
+  /** 省略時は CF MEMO の Jexer / 家ジム (選択は端末に保存) */
+  places?: PartsPlace[]
+  /** きょうトレのURL (このページからの相対パス) */
+  kyotoreUrl?: string
 }
 
 const MUSCLES: Muscle[] = ['chest', 'back', 'shoulders', 'arms', 'core', 'glutes', 'legs']
@@ -41,8 +52,14 @@ function answersFor(muscles: Muscle[], location: GymLocation, minutes: number): 
   }
 }
 
-function memoBody(w: Workout, location: GymLocation): string {
-  const lines = [`${GYM_LABEL[location]} / 約${w.totalMinutes}分 / ${w.subtitle}`, '']
+const CF_PLACES: PartsPlace[] = (['jexer', 'home'] as const).map(l => ({
+  key: l,
+  label: GYM_LABEL[l],
+  answers: (muscles, minutes) => answersFor(muscles, l, minutes),
+}))
+
+function memoBody(w: Workout, place: PartsPlace): string {
+  const lines = [`${place.label} / 約${w.totalMinutes}分 / ${w.subtitle}`, '']
   for (const b of w.blocks) {
     lines.push(`■ ${b.title} (${b.minutes}分)`)
     for (const it of b.items) {
@@ -55,9 +72,14 @@ function memoBody(w: Workout, location: GymLocation): string {
   return lines.join('\n').trim()
 }
 
-export default function PartsWorkout({ onSaved }: Props) {
+export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/' }: Props) {
   const [muscles, setMuscles] = useState<Muscle[]>([])
-  const [location, setLocation] = useGymLocation()
+  const [gymLocation, setGymLocation] = useGymLocation()
+  const [customKey, setCustomKey] = useState(places?.[0]?.key)
+  const list = places ?? CF_PLACES
+  const placeKey = places ? customKey : gymLocation
+  const place = list.find(pl => pl.key === placeKey) ?? list[0]
+  const setPlace = (key: string) => (places ? setCustomKey(key) : setGymLocation(key as GymLocation))
   const [minutes, setMinutes] = useState<number>(60)
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [saving, setSaving] = useState(false)
@@ -69,7 +91,7 @@ export default function PartsWorkout({ onSaved }: Props) {
 
   function generate() {
     const seed = (Date.now() % 2147483647) >>> 0
-    setWorkout(generateForToday(answersFor(muscles, location, minutes), seed, loadHistory()))
+    setWorkout(generateForToday(place.answers(muscles, minutes), seed, loadHistory()))
   }
 
   async function handleSave() {
@@ -80,8 +102,8 @@ export default function PartsWorkout({ onSaved }: Props) {
       const memo: Memo = {
         id: newId(),
         category: 'wod',
-        title: `部位トレ: ${workout.focusLabel} (${location === 'home' ? '家ジム' : 'Jexer'})`,
-        body: memoBody(workout, location),
+        title: `部位トレ: ${workout.focusLabel} (${place.label.replace(/^\S+ /, '')})`,
+        body: memoBody(workout, place),
         tags: ['部位トレ'],
         imageIds: [],
         createdAt: now,
@@ -116,21 +138,25 @@ export default function PartsWorkout({ onSaved }: Props) {
         ))}
       </div>
 
-      <label className="field-label">場所</label>
-      <div className="gym-toggle" role="group" aria-label="トレーニングする場所">
-        {(['jexer', 'home'] as const).map(l => (
-          <button
-            key={l}
-            className={location === l ? 'on' : ''}
-            onClick={() => {
-              setLocation(l)
-              setWorkout(null)
-            }}
-          >
-            {GYM_LABEL[l]}
-          </button>
-        ))}
-      </div>
+      {list.length > 1 && (
+        <>
+          <label className="field-label">場所</label>
+          <div className="gym-toggle" role="group" aria-label="トレーニングする場所">
+            {list.map(pl => (
+              <button
+                key={pl.key}
+                className={place.key === pl.key ? 'on' : ''}
+                onClick={() => {
+                  setPlace(pl.key)
+                  setWorkout(null)
+                }}
+              >
+                {pl.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <label className="field-label">時間</label>
       <div className="chip-row">
@@ -207,7 +233,7 @@ export default function PartsWorkout({ onSaved }: Props) {
             </button>
             <a
               className="btn-ghost wide pw-link"
-              href={`./workout/?w=${shareCode(workout)}`}
+              href={`${kyotoreUrl}?w=${shareCode(workout)}`}
               target="_blank"
               rel="noreferrer"
             >

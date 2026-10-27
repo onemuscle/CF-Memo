@@ -1,15 +1,22 @@
 import type { Memo, PR, ScannedWod, StoredImage } from './types'
 
-const DB_NAME = 'cf-memo-db'
 // v2: WODスキャン結果 (wods) と設定 (settings) を追加
 const DB_VERSION = 2
 
+/** CF MEMO (/) と みんな向け版 FIT MEMO (/app/) は同じオリジンなので、DB名で記録を分ける */
+let dbName = 'cf-memo-db'
 let dbPromise: Promise<IDBDatabase> | null = null
+
+/** 最初の読み書きより前に呼ぶ (エントリポイントで1回だけ) */
+export function setDatabaseName(name: string) {
+  if (dbPromise) throw new Error('DB は既に開かれています')
+  dbName = name
+}
 
 function openDB(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(dbName, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains('memos')) {

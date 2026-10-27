@@ -23,6 +23,10 @@ import { WOD_SAVED_EVENT } from './TodayPage'
 
 interface Props {
   onSaved: (memoId: string) => void
+  /** 読み取ったWODから今夜の補助トレを判定する (CF MEMO の12週プラン専用) */
+  advise?: boolean
+  /** 端末内OCRのアセット (tesseract/・tessdata/) があるディレクトリ (このページからの相対パス) */
+  ocrBase?: string
 }
 
 type Phase = 'pick' | 'ready' | 'ocr' | 'edit'
@@ -43,7 +47,7 @@ const emptyDraft = (): WodDraft => ({
   source: 'manual',
 })
 
-export default function WodScan({ onSaved }: Props) {
+export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props) {
   const [phase, setPhase] = useState<Phase>('pick')
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>()
@@ -110,6 +114,7 @@ export default function WodScan({ onSaved }: Props) {
    * 予定種目が無い日 (完全休養・週末) は判定するものが無いので呼ばない。
    */
   async function runAdvice(d: WodDraft, forDate: string) {
+    if (!advise) return
     const day = planDay(forDate)
     // 補助トレの場所 (Jexer / 家ジム) に合わせた種目リストで判定する
     const location = gymLocationOf(await getSetting(GYM_SETTING))
@@ -162,7 +167,7 @@ export default function WodScan({ onSaved }: Props) {
     setError('')
     try {
       // OCRアセットはすべてアプリに同梱 (CDN不要・オフライン動作)
-      const assetBase = new URL('.', document.baseURI).href
+      const assetBase = new URL(ocrBase, document.baseURI).href
       const { data } = await Tesseract.recognize(file, 'jpn+eng', {
         workerPath: `${assetBase}tesseract/worker.min.js`,
         corePath: `${assetBase}tesseract`,
