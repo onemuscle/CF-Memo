@@ -3,10 +3,11 @@ import {
   generateForToday,
   shareCode,
   type Answers,
+  type Gear,
   type Muscle,
   type Workout,
 } from '../workout/engine'
-import { MUSCLE_LABEL } from '../workout/engine/labels'
+import { GEAR_LABEL, MUSCLE_LABEL } from '../workout/engine/labels'
 import { loadHistory } from '../workout/storage'
 import { putMemo } from '../db'
 import { newId, type Memo } from '../types'
@@ -18,7 +19,9 @@ import { SubFold, useGymLocation } from './TodayPage'
 export interface PartsPlace {
   key: string
   label: string
-  answers: (muscles: Muscle[], minutes: number) => Answers
+  answers: (muscles: Muscle[], minutes: number, gear: Gear[]) => Answers
+  /** 使える道具を選ばせる (自宅・野外) */
+  gearOptions?: Gear[]
 }
 
 interface Props {
@@ -27,6 +30,9 @@ interface Props {
   places?: PartsPlace[]
   /** きょうトレのURL (このページからの相対パス) */
   kyotoreUrl?: string
+  /** 最初に選んでおく場所と道具 */
+  defaultPlace?: string
+  defaultGear?: Gear[]
 }
 
 const MUSCLES: Muscle[] = ['chest', 'back', 'shoulders', 'arms', 'core', 'glutes', 'legs']
@@ -72,10 +78,11 @@ function memoBody(w: Workout, place: PartsPlace): string {
   return lines.join('\n').trim()
 }
 
-export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/' }: Props) {
+export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/', defaultPlace, defaultGear = [] }: Props) {
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [gymLocation, setGymLocation] = useGymLocation()
-  const [customKey, setCustomKey] = useState(places?.[0]?.key)
+  const [customKey, setCustomKey] = useState(defaultPlace ?? places?.[0]?.key)
+  const [gear, setGear] = useState<Gear[]>(defaultGear)
   const list = places ?? CF_PLACES
   const placeKey = places ? customKey : gymLocation
   const place = list.find(pl => pl.key === placeKey) ?? list[0]
@@ -91,7 +98,7 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
 
   function generate() {
     const seed = (Date.now() % 2147483647) >>> 0
-    setWorkout(generateForToday(place.answers(muscles, minutes), seed, loadHistory()))
+    setWorkout(generateForToday(place.answers(muscles, minutes, place.gearOptions ? gear.filter(g => place.gearOptions!.includes(g)) : []), seed, loadHistory()))
   }
 
   async function handleSave() {
@@ -141,7 +148,7 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
       {list.length > 1 && (
         <>
           <label className="field-label">場所</label>
-          <div className="gym-toggle" role="group" aria-label="トレーニングする場所">
+          <div className={`gym-toggle ${list.length > 2 ? 'many' : ''}`} role="group" aria-label="トレーニングする場所">
             {list.map(pl => (
               <button
                 key={pl.key}
@@ -152,6 +159,26 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
                 }}
               >
                 {pl.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {place.gearOptions && (
+        <>
+          <label className="field-label">使える道具 (なしでもOK)</label>
+          <div className="chip-row wrap">
+            {place.gearOptions.map(g => (
+              <button
+                key={g}
+                className={`chip ${gear.includes(g) ? 'chip-on' : ''}`}
+                onClick={() => {
+                  setGear(prev => (prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]))
+                  setWorkout(null)
+                }}
+              >
+                {GEAR_LABEL[g]}
               </button>
             ))}
           </div>

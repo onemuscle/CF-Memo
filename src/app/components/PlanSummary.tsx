@@ -7,6 +7,8 @@ import { DOW_LABEL, WEEK_ORDER, daysText, weightDirection } from '../profile'
 import { PHASES, SESSION_META, isTraining, phaseOf, type Plan, type Session } from '../plan/plan'
 import { targetsFor, weightAt, weeklyRate } from '../plan/nutrition'
 import { PROGRESSION, mealGuide, rulesFor } from '../plan/guide'
+import { ThemePicker } from './Onboarding'
+import type { Theme } from '../theme'
 
 function accent(color: string): CSSProperties {
   return { '--k': color } as CSSProperties
@@ -108,9 +110,11 @@ interface Props {
   onBack?: () => void
   onEdit: () => void
   onReset?: () => void
+  /** 色テーマを変える (プランは作り直さない) */
+  onTheme?: (t: Theme) => void
 }
 
-export default function PlanSummary({ plan, mode, onStart, onBack, onEdit, onReset }: Props) {
+export default function PlanSummary({ plan, mode, onStart, onBack, onEdit, onReset, onTheme }: Props) {
   const p = plan.profile
   const [confirmReset, setConfirmReset] = useState(false)
   const owner = p.name ? `${p.name}さんの` : 'あなたの'
@@ -197,6 +201,13 @@ export default function PlanSummary({ plan, mode, onStart, onBack, onEdit, onRes
               ))}
             </SubFold>
           </section>
+
+          {onTheme && (
+            <section className="sum-card">
+              <h3 className="sum-h">アプリの色</h3>
+              <ThemePicker value={p.theme ?? 'black'} onChange={onTheme} />
+            </section>
+          )}
 
           <section className="sum-card">
             <h3 className="sum-h">プロフィール</h3>

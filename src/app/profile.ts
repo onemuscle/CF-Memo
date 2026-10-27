@@ -3,6 +3,7 @@
 
 import { getSetting, putSetting } from '../db'
 import type { Env, Gear, Goal, Injury, Level } from '../workout/engine'
+import type { Theme } from './theme'
 
 export type Sex = 'male' | 'female' | 'other'
 
@@ -50,6 +51,8 @@ export interface Profile {
   /** YYYY-MM-DD */
   startDate: string
   createdAt: number
+  /** アプリの色 (なければ黒) */
+  theme?: Theme
 }
 
 export const PROFILE_SETTING = 'profile'
