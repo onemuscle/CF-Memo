@@ -8,6 +8,7 @@ import { PHASES, SESSION_META, isTraining, phaseOf, type Plan, type Session } fr
 import { targetsFor, weightAt, weeklyRate } from '../plan/nutrition'
 import { PROGRESSION, mealGuide, rulesFor } from '../plan/guide'
 import { ThemePicker } from './Onboarding'
+import Mascot, { MascotSays } from './Mascot'
 import type { Theme } from '../theme'
 
 function accent(color: string): CSSProperties {
@@ -138,6 +139,9 @@ export default function PlanSummary({ plan, mode, onStart, onBack, onEdit, onRes
             <br />
             {p.weeks}週間プランができました
           </h1>
+          <MascotSays mood="cheer" size={72}>
+            完成！{p.name ? `${p.name}さん、` : ''}いっしょにがんばろうね。毎日「今日」タブで待ってるよ
+          </MascotSays>
         </div>
       )}
 
@@ -282,7 +286,8 @@ export function Generating({ weeks, onDone }: { weeks: number; onDone: () => voi
   }, [steps.length])
   return (
     <div className="generating">
-      <div className="gen-ring" />
+      <Mascot mood="cheer" size={120} bounce />
+      <p className="gen-title">プランを作っています…</p>
       <ul className="gen-steps">
         {steps.map((s, i) => (
           <li key={s} className={i < n ? 'done' : i === n ? 'now' : ''}>
