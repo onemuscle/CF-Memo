@@ -9,13 +9,14 @@ import WodScan from '../components/WodScan'
 import PartsWorkout, { type PartsPlace } from '../components/PartsWorkout'
 import { NoteIcon, TrophyIcon, ScanIcon, TodayIcon, DumbbellIcon, UserIcon } from '../components/Icons'
 import { ENV_LABEL } from '../workout/engine/labels'
-import type { Env } from '../workout/engine'
+import type { Env, Gear } from '../workout/engine'
 import Onboarding, { Welcome } from './components/Onboarding'
 import PlanSummary, { Generating } from './components/PlanSummary'
 import PlanToday from './components/PlanToday'
 import { PROFILE_SETTING, loadProfile, saveProfile, type Profile } from './profile'
 import { buildPlan } from './plan/plan'
 import { answersFor } from './plan/workout'
+import { applyTheme } from './theme'
 
 type Tab = 'today' | 'parts' | 'memos' | 'prs' | 'scan'
 
@@ -39,6 +40,9 @@ const TABS: { key: Tab; label: string; icon: (p: { size?: number }) => JSX.Eleme
 ]
 
 const PLACE_ICON: Record<Env, string> = { gym: '🏋️', box: '🔥', home: '🏠', outdoor: '🌳' }
+const PARTS_ENVS: Env[] = ['gym', 'box', 'home', 'outdoor']
+const HOME_GEAR: Gear[] = ['dumbbell', 'band', 'kettlebell', 'bench', 'bar']
+const OUTDOOR_GEAR: Gear[] = ['bar', 'bench', 'stairs', 'band']
 
 export default function App() {
   const [stage, setStage] = useState<Stage>('loading')
@@ -58,6 +62,7 @@ export default function App() {
 
   useEffect(() => {
     loadProfile().then(p => {
+      if (p?.theme) applyTheme(p.theme)
       setProfile(p)
       setStage(p ? 'main' : 'welcome')
     })
@@ -76,15 +81,17 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }, [stage, tab, view.name])
 
-  /** 部位トレで選べる場所 = プロフィールで選んだ場所 */
+  /** 部位トレの場所は4つすべてから選べる (最初はプロフィールで選んだ場所) */
   const partsPlaces: PartsPlace[] = useMemo(() => {
     if (!profile) return []
-    return profile.places.map(env => ({
+    return PARTS_ENVS.map(env => ({
       key: env,
       label: `${PLACE_ICON[env]} ${ENV_LABEL[env]}`,
-      answers: (muscles, minutes) => ({
+      gearOptions: env === 'home' ? HOME_GEAR : env === 'outdoor' ? OUTDOOR_GEAR : undefined,
+      answers: (muscles, minutes, gear) => ({
         ...answersFor(profile, { type: 'strength', label: '', focus: muscles, fullBody: false, env }, 'normal'),
         minutes,
+        gear,
       }),
     }))
   }, [profile])
@@ -112,7 +119,11 @@ export default function App() {
       <Onboarding
         initial={stage === 'editing' ? profile ?? undefined : undefined}
         onDone={finishOnboarding}
-        onExit={() => setStage(stage === 'editing' ? 'main' : 'welcome')}
+        onExit={() => {
+          // 質問の途中で色を試したまま戻ったら、保存済みの色に戻す
+          if (stage === 'editing' && profile?.theme) applyTheme(profile.theme)
+          setStage(stage === 'editing' ? 'main' : 'welcome')
+        }}
       />
     )
   }
@@ -206,6 +217,12 @@ export default function App() {
             plan={plan!}
             mode="overview"
             onBack={home}
+            onTheme={async theme => {
+              applyTheme(theme)
+              const next = { ...profile!, theme }
+              await saveProfile(next)
+              setProfile(next)
+            }}
             onEdit={() => {
               home()
               setStage('editing')
@@ -233,6 +250,8 @@ export default function App() {
         return (
           <PartsWorkout
             places={partsPlaces}
+            defaultPlace={profile!.places[0]}
+            defaultGear={profile!.gear}
             kyotoreUrl="../workout/"
             onSaved={async memoId => {
               await refresh()

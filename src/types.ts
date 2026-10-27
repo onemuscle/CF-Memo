@@ -1,10 +1,10 @@
 export type Category = 'wod' | 'meal' | 'rest' | 'note'
 
 export const CATEGORY_META: Record<Category, { label: string; color: string }> = {
-  wod: { label: 'WOD', color: '#c6ff3e' },
-  meal: { label: '食事', color: '#ff9f43' },
-  rest: { label: '休養', color: '#4dd6ff' },
-  note: { label: 'その他', color: '#b18cff' },
+  wod: { label: 'WOD', color: 'var(--c-lime)' },
+  meal: { label: '食事', color: 'var(--c-orange)' },
+  rest: { label: '休養', color: 'var(--c-cyan)' },
+  note: { label: 'その他', color: 'var(--c-violet)' },
 }
 
 export interface Memo {

@@ -1,5 +1,110 @@
 /* みんな向け版 FIT MEMO (/app/) だけで使うスタイル。共通部分は styles.css */
 
+/* ---------- 色テーマ (黒は styles.css の :root のまま) ---------- */
+
+:root[data-theme='white'],
+:root[data-theme='ivory'],
+:root[data-theme='pink'] {
+  color-scheme: light;
+  --on-accent: #ffffff;
+  --bar-bg: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+  --title-grad-end: var(--c-pink);
+}
+
+:root[data-theme='white'] {
+  --bg: #f4f5f7;
+  --bg-raised: #ffffff;
+  --bg-input: #eceef2;
+  --border: #e0e3e9;
+  --border-strong: #c9ced8;
+  --text: #16181d;
+  --text-dim: #626876;
+  --text-faint: #9097a5;
+  --accent: #3f7d0a;
+  --accent-dark: #326508;
+  --danger: #d43d4f;
+  --danger-text: #c23447;
+  --warn: #c98a00;
+  --warn-text: #9a6700;
+  --c-lime: #4f8a0c;
+  --c-violet: #7a4fd6;
+  --c-cyan: #0f86ad;
+  --c-green: #1f9254;
+  --c-yellow: #b27a00;
+  --c-orange: #d06a12;
+  --c-pink: #d23f69;
+  --c-gray: #737a89;
+}
+
+:root[data-theme='ivory'] {
+  --bg: #f5efe4;
+  --bg-raised: #fffaf2;
+  --bg-input: #efe6d6;
+  --border: #e6dac6;
+  --border-strong: #d4c4a8;
+  --text: #3b3128;
+  --text-dim: #7f7264;
+  --text-faint: #a69887;
+  --accent: #9a693c;
+  --accent-dark: #845830;
+  --danger: #c0504d;
+  --danger-text: #b04441;
+  --warn: #c08a2e;
+  --warn-text: #94661c;
+  --c-lime: #7c8a35;
+  --c-violet: #8c6cb5;
+  --c-cyan: #4a88a3;
+  --c-green: #5b8f63;
+  --c-yellow: #b0832f;
+  --c-orange: #c27443;
+  --c-pink: #c2637b;
+  --c-gray: #8c8173;
+}
+
+:root[data-theme='pink'] {
+  --bg: #fff3f6;
+  --bg-raised: #ffffff;
+  --bg-input: #fde6ec;
+  --border: #f5d3dd;
+  --border-strong: #ebbccb;
+  --text: #40293a;
+  --text-dim: #92707f;
+  --text-faint: #b896a5;
+  --accent: #c9456b;
+  --accent-dark: #ad3858;
+  --danger: #d1404f;
+  --danger-text: #bf3442;
+  --warn: #cc8f2a;
+  --warn-text: #9a6618;
+  --c-lime: #8a9c34;
+  --c-violet: #9a68d0;
+  --c-cyan: #3c93bb;
+  --c-green: #3c9a72;
+  --c-yellow: #c08f26;
+  --c-orange: #dc7448;
+  --c-pink: #d24e75;
+  --c-gray: #9a8590;
+}
+
+/* 明るいテーマでは影を足して、カードの境目を見やすくする */
+:root[data-theme='white'] .plan-card,
+:root[data-theme='white'] .hero,
+:root[data-theme='white'] .sum-card,
+:root[data-theme='ivory'] .plan-card,
+:root[data-theme='ivory'] .hero,
+:root[data-theme='ivory'] .sum-card,
+:root[data-theme='pink'] .plan-card,
+:root[data-theme='pink'] .hero,
+:root[data-theme='pink'] .sum-card {
+  box-shadow: 0 1px 2px rgba(60, 40, 30, 0.04), 0 4px 14px rgba(60, 40, 30, 0.05);
+}
+
+:root[data-theme='white'] .subfold.open,
+:root[data-theme='ivory'] .subfold.open,
+:root[data-theme='pink'] .subfold.open {
+  background: var(--bg-input);
+}
+
 .splash {
   min-height: 100dvh;
 }
@@ -29,7 +134,7 @@
   align-items: center;
   gap: 12px;
   padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
-  background: rgba(10, 11, 14, 0.92);
+  background: var(--bar-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -208,8 +313,8 @@
   content: '';
   width: 9px;
   height: 5px;
-  border-left: 2px solid #0c0d08;
-  border-bottom: 2px solid #0c0d08;
+  border-left: 2px solid var(--on-accent);
+  border-bottom: 2px solid var(--on-accent);
   transform: translateY(-1px) rotate(-45deg);
 }
 
@@ -269,7 +374,7 @@
 }
 
 .ob-stepper.bad {
-  border-color: rgba(255, 92, 108, 0.5);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
 .ob-stepper-label {
@@ -360,7 +465,7 @@
 }
 
 .ob-warn {
-  color: #ffb3bb;
+  color: var(--danger-text);
   font-size: 12.5px;
 }
 
@@ -389,17 +494,17 @@
 }
 
 .ob-day.sat {
-  color: #8fb4ff;
+  color: var(--c-cyan);
 }
 
 .ob-day.sun {
-  color: #ff8f9c;
+  color: var(--c-pink);
 }
 
 .ob-day.on {
   border-color: var(--accent);
   background: var(--accent);
-  color: #0c0d08;
+  color: var(--on-accent);
 }
 
 /* 確認 */
@@ -452,8 +557,8 @@
 .welcome-hero {
   padding: 48px 24px 28px;
   background:
-    radial-gradient(ellipse 80% 70% at 90% 0%, rgba(198, 255, 62, 0.16), transparent),
-    radial-gradient(ellipse 60% 60% at 0% 40%, rgba(77, 214, 255, 0.08), transparent);
+    radial-gradient(ellipse 80% 70% at 90% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent),
+    radial-gradient(ellipse 60% 60% at 0% 40%, color-mix(in srgb, var(--c-cyan) 8%, transparent), transparent);
 }
 
 .welcome-logo {
@@ -594,7 +699,7 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: #0c0d08;
+  color: var(--on-accent);
   background: var(--accent);
   border-radius: 5px;
   padding: 2px 8px;
@@ -698,7 +803,7 @@
   font-family: var(--font-display);
   font-size: 10px;
   font-weight: 600;
-  color: #0c0d08;
+  color: var(--on-accent);
   display: grid;
   place-items: center;
 }
@@ -1000,8 +1105,8 @@
   font-style: normal;
   font-size: 10.5px;
   font-weight: 700;
-  color: #0c0d08;
-  background: #ff9f43;
+  color: var(--on-accent);
+  background: var(--c-orange);
   border-radius: 4px;
   padding: 0 6px;
   margin-left: 6px;
@@ -1011,4 +1116,84 @@
 .meal-item.train .meal-food {
   color: var(--accent);
   font-weight: 700;
+}
+
+/* ---------- 色テーマの選択 ---------- */
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.theme-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 10px 12px;
+  text-align: left;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-raised);
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.theme-opt:active {
+  transform: scale(0.985);
+}
+
+.theme-opt.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.theme-preview {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: flex-end;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  margin-bottom: 4px;
+}
+
+.theme-preview-card {
+  width: 100%;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.theme-preview-card i {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  width: 70%;
+}
+
+.theme-preview-card i + i {
+  width: 45%;
+}
+
+.theme-preview-card b {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.theme-name {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.theme-desc {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.45;
 }

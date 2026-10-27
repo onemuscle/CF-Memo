@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { getSetting, getWod, putSetting } from '../db'
 import type { ScannedWod } from '../types'
+import { useImageUrl } from '../images'
 import {
   HOME_EQUIPMENT,
   MEALS,
@@ -231,10 +232,24 @@ function useScannedWod(date: string): ScannedWod | undefined {
   return wod
 }
 
+/** 文字を読み取らずに写真のまま保存したWOD */
+export function isPhotoWod(wod: ScannedWod): boolean {
+  return wod.source === 'manual'
+}
+
+/** スキャンしたボードの写真。写真のまま保存したときは大きく、読み取ったときは折りたたむ */
+export function WodPhoto({ wod }: { wod: ScannedWod }) {
+  const url = useImageUrl(wod.imageId)
+  if (!url) return null
+  const img = <img className="wod-photo" src={url} alt="WODのホワイトボード" />
+  return isPhotoWod(wod) ? img : <SubFold title="ボードの写真">{img}</SubFold>
+}
+
 function ScannedWodBody({ wod }: { wod: ScannedWod }) {
   const hasDetail = wod.movements.length > 0
   return (
     <>
+      {isPhotoWod(wod) && <WodPhoto wod={wod} />}
       {wod.format && <p className="wod-format">{wod.format}</p>}
 
       {hasDetail ? (
@@ -252,7 +267,7 @@ function ScannedWodBody({ wod }: { wod: ScannedWod }) {
           ))}
         </div>
       ) : (
-        wod.raw && <pre className="wod-raw">{wod.raw}</pre>
+        wod.raw && (isPhotoWod(wod) ? <p className="card-note">{wod.raw}</p> : <pre className="wod-raw">{wod.raw}</pre>)
       )}
 
       {wod.notes && <p className="card-note">{wod.notes}</p>}
@@ -263,6 +278,8 @@ function ScannedWodBody({ wod }: { wod: ScannedWod }) {
           {wod.result}
         </p>
       )}
+
+      {!isPhotoWod(wod) && <WodPhoto wod={wod} />}
 
       <p className="card-note">
         ここが高負荷なら、この後のRun・Burpeeは中止する。

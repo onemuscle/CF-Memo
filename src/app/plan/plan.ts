@@ -43,7 +43,7 @@ export const PHASES: Record<PhaseKey, Phase> = {
       'セット数を控えめにし、どの種目も「あと3回はできる」余力を残して終えます。最初の週に追い込みすぎると筋肉痛で2週目が崩れるので、物足りないくらいが正解です。使った重量はメモしておくと次週の基準になります。',
     condition: 'tired',
     cardioScale: 0.6,
-    color: '#4dd6ff',
+    color: 'var(--c-cyan)',
   },
   build: {
     key: 'build',
@@ -53,7 +53,7 @@ export const PHASES: Record<PhaseKey, Phase> = {
       'ダブルプログレッションで進めます。決めた回数の上限を全セットでできたら、次回は重量を一段上げて回数の下限からやり直し。毎回ほんの少しでも前回を超えるのが目標です。',
     condition: 'normal',
     cardioScale: 0.8,
-    color: '#c6ff3e',
+    color: 'var(--c-lime)',
   },
   push: {
     key: 'push',
@@ -63,7 +63,7 @@ export const PHASES: Record<PhaseKey, Phase> = {
       '各種目の最後のセットだけは、フォームが崩れない範囲で限界近くまで挑戦します。睡眠と食事をいつも以上に優先し、疲れが抜けない日は無理せず「疲れ気味」に切り替えてください。',
     condition: 'great',
     cardioScale: 1,
-    color: '#ff9f43',
+    color: 'var(--c-orange)',
   },
   deload: {
     key: 'deload',
@@ -73,7 +73,7 @@ export const PHASES: Record<PhaseKey, Phase> = {
       '重量はそのままでセット数を減らし、余力を多めに残します。サボりではなく、溜まった疲労を抜いて次の3週間で記録を伸ばすための計画的な休みです。',
     condition: 'tired',
     cardioScale: 0.6,
-    color: '#57e08a',
+    color: 'var(--c-green)',
   },
   final: {
     key: 'final',
@@ -83,7 +83,7 @@ export const PHASES: Record<PhaseKey, Phase> = {
       'いつもの量でこなしながら、主要な種目の記録・体重・写真を残しておきましょう。最終日のあとは振り返りの日です。次のプランはその結果をもとに作り直せます。',
     condition: 'normal',
     cardioScale: 0.9,
-    color: '#ffd166',
+    color: 'var(--c-yellow)',
   },
 }
 
@@ -284,12 +284,12 @@ export interface SessionMeta {
 }
 
 export const SESSION_META: Record<SessionType, SessionMeta> = {
-  strength: { tag: 'STRENGTH', color: '#b18cff' },
-  crossfit: { tag: 'CROSSFIT', color: '#c6ff3e' },
-  cardio: { tag: 'CARDIO', color: '#4dd6ff' },
-  hiit: { tag: 'INTERVAL', color: '#ff6b8a' },
-  rest: { tag: 'REST', color: '#57e08a' },
-  review: { tag: 'REVIEW', color: '#ffd166' },
+  strength: { tag: 'STRENGTH', color: 'var(--c-violet)' },
+  crossfit: { tag: 'CROSSFIT', color: 'var(--c-lime)' },
+  cardio: { tag: 'CARDIO', color: 'var(--c-cyan)' },
+  hiit: { tag: 'INTERVAL', color: 'var(--c-pink)' },
+  rest: { tag: 'REST', color: 'var(--c-green)' },
+  review: { tag: 'REVIEW', color: 'var(--c-yellow)' },
 }
 
 /** 「上半身の日」「CrossFit WOD」など、その日の見出し */

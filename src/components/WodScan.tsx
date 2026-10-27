@@ -69,6 +69,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
   const [keyOpen, setKeyOpen] = useState(false)
   const [keyStatus, setKeyStatus] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  /** 文字を読み取らずに写真だけで保存するところ */
+  const photoOnly = phase === 'edit' && draft.source === 'manual'
 
   useEffect(() => {
     getSetting(API_KEY_SETTING).then(v => setApiKey(v ?? ''))
@@ -139,6 +141,14 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
     } finally {
       setJudging(false)
     }
+  }
+
+  /** 文字は読み取らず、写真をそのままWODとして残す (手書きのボードはこれがいちばん確実) */
+  function keepPhoto() {
+    setDraft(emptyDraft())
+    setText('')
+    setTitle(`WOD ${formatDate(date)}`)
+    setPhase('edit')
   }
 
   /** Claudeで読み取る。キー未設定なら呼ばれない */
@@ -213,9 +223,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
     try {
       const imageId = await saveImageFile(file)
       const now = Date.now()
-      const body = result.trim()
-        ? `${text.trim()}\n\n▶ RESULT: ${result.trim()}`
-        : text.trim()
+      const content = text.trim() || (photoOnly ? '📷 写真で記録したWOD' : '')
+      const body = result.trim() ? `${content}\n\n▶ RESULT: ${result.trim()}` : content
       const memo: Memo = {
         id: newId(),
         category: 'wod',
@@ -264,8 +273,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
       <div className="scan-intro">
         <h2 className="scan-title">WOD SCAN</h2>
         <p className="scan-sub">
-          ホワイトボードのWOD画像を読み取り、保存するとその日の「今日」タブに反映されます。
-          結果は保存前に自由に編集できます。
+          ホワイトボードを撮って保存すると、その日の「今日」タブに写真が表示されます。
+          APIキーを設定すると、種目・回数・重量まで文字で読み取れます。
         </p>
       </div>
 
@@ -304,20 +313,23 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
               <button className="btn-primary wide" onClick={runClaude}>
                 読み取る ({QUALITY_TIERS[quality].label} · {QUALITY_TIERS[quality].cost})
               </button>
-              <button className="btn-ghost wide" onClick={runTesseract}>
-                端末内OCRで読み取る (オフライン)
+              <button className="btn-ghost wide" onClick={keepPhoto}>
+                読み取らずに写真のまま保存
               </button>
             </>
           ) : (
             <>
-              <p className="scan-hint">
-                高精度の読み取りにはAPIキーの設定が必要です。未設定のまま進むと端末内OCRになります。
-              </p>
-              <button className="btn-primary wide" onClick={() => setKeyOpen(true)}>
-                APIキーを設定する
+              <button className="btn-primary wide" onClick={keepPhoto}>
+                📷 写真のまま保存する
               </button>
-              <button className="btn-ghost wide" onClick={runTesseract}>
-                端末内OCRで読み取る
+              <p className="scan-hint">
+                種目・回数まで文字で読み取りたいときは、APIキーを設定してください。
+              </p>
+              <button className="btn-ghost wide" onClick={() => setKeyOpen(true)}>
+                APIキーを設定して読み取る
+              </button>
+              <button className="scan-text-link" onClick={runTesseract}>
+                端末内OCRで文字も読んでみる (活字向け・手書きはほぼ読めません)
               </button>
             </>
           )}
@@ -360,11 +372,17 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
 
       {phase === 'edit' && (
         <>
-          <p className={`scan-hint${draft.confidence === 'high' ? '' : ' warn'}`}>
-            {draft.source === 'tesseract'
-              ? '⚠ 端末内OCRは手書きに弱いため、内容を必ず確認してください。'
-              : `読み取り: ${CONFIDENCE_LABEL[draft.confidence]}。保存前に確認・修正してください。`}
-          </p>
+          {photoOnly ? (
+            <p className="scan-hint">
+              📷 写真のまま保存します。種目や回数をメモしておきたいときは、下の「メモ」に書き足してください (空欄でもOK)。
+            </p>
+          ) : (
+            <p className={`scan-hint${draft.confidence === 'high' ? '' : ' warn'}`}>
+              {draft.source === 'tesseract'
+                ? '⚠ 端末内OCRは手書きに弱いため、内容を必ず確認してください。'
+                : `読み取り: ${CONFIDENCE_LABEL[draft.confidence]}。保存前に確認・修正してください。`}
+            </p>
+          )}
 
           {draft.movements.length > 0 && (
             <div className="wod-movements">
@@ -434,12 +452,13 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
           />
 
           <label className="field-label" htmlFor="wod-text">
-            WODの内容 (編集可能)
+            {photoOnly ? 'メモ (任意)' : 'WODの内容 (編集可能)'}
           </label>
           <textarea
             id="wod-text"
             className="input textarea"
-            rows={10}
+            rows={photoOnly ? 4 : 10}
+            placeholder={photoOnly ? '例: AMRAP 12分 / Thruster 40kg / Pull-up' : undefined}
             value={text}
             onChange={e => setText(e.target.value)}
           />

@@ -17,6 +17,7 @@ import {
   type Profile,
 } from '../profile'
 import { weeklyRate, weeksToTarget } from '../plan/nutrition'
+import { THEMES, applyTheme, savedTheme, type Theme } from '../theme'
 
 type Draft = Partial<Profile>
 
@@ -35,7 +36,7 @@ type MultiKey = 'injuries' | 'places' | 'gear'
 type Kind =
   | { type: 'choice'; key: ChoiceKey; options: (d: Draft, initial?: Profile) => Option[]; grid?: boolean }
   | { type: 'multi'; key: MultiKey; options: (d: Draft) => Option[]; required?: boolean }
-  | { type: 'name' | 'body' | 'target' | 'days' | 'confirm' }
+  | { type: 'theme' | 'name' | 'body' | 'target' | 'days' | 'confirm' }
 
 interface Step {
   id: string
@@ -71,6 +72,14 @@ function startOptions(initial?: Profile): Option[] {
 }
 
 const STEPS: Step[] = [
+  {
+    id: 'theme',
+    section: 'はじめに',
+    title: () => '好きな色を選んでください',
+    sub: () => 'タップするとすぐに切り替わります。あとからいつでも変えられます',
+    kind: { type: 'theme' },
+    row: { label: 'アプリの色', value: d => THEMES.find(t => t.key === d.theme)?.label ?? '' },
+  },
   {
     id: 'name',
     section: 'はじめに',
@@ -411,6 +420,7 @@ function toProfile(d: Draft, initial?: Profile): Profile {
     weeks: d.weeks!,
     startDate: d.startDate!,
     createdAt: initial?.createdAt ?? Date.now(),
+    theme: d.theme ?? 'black',
   }
 }
 
@@ -426,7 +436,9 @@ interface Props {
 }
 
 export default function Onboarding({ initial, onDone, onExit }: Props) {
-  const [d, setD] = useState<Draft>(() => (initial ? { ...initial } : { ...NEW_DRAFT }))
+  const [d, setD] = useState<Draft>(() =>
+    initial ? { ...initial, theme: initial.theme ?? savedTheme() } : { ...NEW_DRAFT, theme: savedTheme() },
+  )
   // 一度答えた質問 (確認画面から直しに行ったとき、未回答の質問だけ続けて聞くため)
   const [seen, setSeen] = useState<Set<string>>(() => new Set(initial ? STEPS.map(s => s.id) : []))
   const [index, setIndex] = useState(() => (initial ? STEPS.length - 1 : 0))
@@ -542,6 +554,15 @@ export default function Onboarding({ initial, onDone, onExit }: Props) {
             />
           )}
           {step.kind.type === 'multi' && <MultiStep kind={step.kind} d={d} update={update} />}
+          {step.kind.type === 'theme' && (
+            <ThemePicker
+              value={d.theme ?? 'black'}
+              onChange={theme => {
+                applyTheme(theme)
+                update({ theme })
+              }}
+            />
+          )}
           {step.kind.type === 'name' && (
             <input
               className="input ob-input"
@@ -883,6 +904,33 @@ export function Welcome({ onStart }: { onStart: () => void }) {
           はじめる (約2分)
         </button>
       </footer>
+    </div>
+  )
+}
+
+/** 色テーマの選択 (オンボーディングとプラン画面で使う) */
+export function ThemePicker({ value, onChange }: { value: Theme; onChange: (t: Theme) => void }) {
+  return (
+    <div className="theme-grid" role="radiogroup" aria-label="アプリの色">
+      {THEMES.map(t => (
+        <button
+          key={t.key}
+          role="radio"
+          aria-checked={value === t.key}
+          className={`theme-opt ${value === t.key ? 'on' : ''}`}
+          onClick={() => onChange(t.key)}
+        >
+          <span className="theme-preview" style={{ background: t.swatch.bg }}>
+            <span className="theme-preview-card" style={{ background: t.swatch.card }}>
+              <i style={{ background: t.swatch.text }} />
+              <i style={{ background: t.swatch.text, opacity: 0.4 }} />
+              <b style={{ background: t.swatch.accent }} />
+            </span>
+          </span>
+          <span className="theme-name">{t.label}</span>
+          <small className="theme-desc">{t.desc}</small>
+        </button>
+      ))}
     </div>
   )
 }

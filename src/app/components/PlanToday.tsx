@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { getWod } from '../../db'
 import type { ScannedWod } from '../../types'
 import { diffDays, dowOf, formatMD, shiftDate, todayISO, weekDates } from '../../plan/plan'
-import { SectionBlock, SubFold, WOD_SAVED_EVENT } from '../../components/TodayPage'
+import { SectionBlock, SubFold, WOD_SAVED_EVENT, WodPhoto, isPhotoWod } from '../../components/TodayPage'
 import type { MemoDraft } from '../../components/MemoEditor'
 import { BackIcon, ChevronIcon, EditIcon, ListIcon } from '../../components/Icons'
 import { CONDITION_LABEL } from '../../workout/engine/labels'
@@ -27,7 +27,7 @@ interface Props {
   onNewPlan: () => void
 }
 
-const MEAL_COLOR = '#ff9f43'
+const MEAL_COLOR = 'var(--c-orange)'
 
 function accent(color: string): CSSProperties {
   return { '--k': color } as CSSProperties
@@ -117,7 +117,7 @@ export default function PlanToday({ plan, onWriteMemo, onOpenPlan, onNewPlan }: 
       </p>
 
       {untilStart > 0 && (
-        <div className="countdown" style={accent('#4dd6ff')}>
+        <div className="countdown" style={accent('var(--c-cyan)')}>
           <b>{untilStart}</b>
           <span>
             日後 ({formatMD(plan.start)}) からプラン開始。
@@ -128,7 +128,7 @@ export default function PlanToday({ plan, onWriteMemo, onOpenPlan, onNewPlan }: 
       )}
 
       {finished && (
-        <div className="countdown done" style={accent('#ffd166')}>
+        <div className="countdown done" style={accent('var(--c-yellow)')}>
           <span>
             {p.weeks}週間のプランが終わりました。お疲れさまでした!
             <br />
@@ -291,7 +291,7 @@ function DayBody({
         <ConditionPicker value={pref.cond} onChange={cond => setPref({ ...pref, cond })} />
       )}
 
-      {day.session.type === 'crossfit' && wod && <ScannedWodCard wod={wod} />}
+      {wod && <ScannedWodCard wod={wod} classWod={day.session.type === 'crossfit'} />}
 
       {workout && (
         <WorkoutCard
@@ -299,7 +299,7 @@ function DayBody({
           tag={meta.tag}
           workout={workout}
           crossfit={day.session.type === 'crossfit'}
-          hasClassWod={!!wod}
+          hasClassWod={day.session.type === 'crossfit' && !!wod}
           onReroll={() => setPref({ ...pref, variant: pref.variant + 1 })}
           rerolled={pref.variant > 0}
           onResetVariant={() => setPref({ ...pref, variant: 0 })}
@@ -311,7 +311,7 @@ function DayBody({
 
       <MealCard plan={plan} day={day} />
 
-      <Card color="#8b90a0" tag="RULE" title="いつでも守るルール">
+      <Card color="var(--c-gray)" tag="RULE" title="いつでも守るルール">
         <ul className="bullet-list">
           {rulesFor(p).map(r => (
             <li key={r}>{r}</li>
@@ -498,9 +498,11 @@ function WorkoutCard({
   )
 }
 
-function ScannedWodCard({ wod }: { wod: ScannedWod }) {
+function ScannedWodCard({ wod, classWod }: { wod: ScannedWod; classWod: boolean }) {
+  const photoOnly = isPhotoWod(wod)
   return (
-    <Card color="#c6ff3e" tag="クラスのWOD" title={wod.title || 'WOD'} sub={wod.format} defaultOpen>
+    <Card color="var(--c-lime)" tag={classWod ? 'クラスのWOD' : '記録したWOD'} title={wod.title || 'WOD'} sub={wod.format} defaultOpen>
+      {photoOnly && <WodPhoto wod={wod} />}
       {wod.movements.length > 0 ? (
         <div className="wod-movements">
           {wod.movements.map((m, i) => (
@@ -514,7 +516,7 @@ function ScannedWodCard({ wod }: { wod: ScannedWod }) {
           ))}
         </div>
       ) : (
-        wod.raw && <pre className="wod-raw">{wod.raw}</pre>
+        wod.raw && (photoOnly ? <p className="card-note">{wod.raw}</p> : <pre className="wod-raw">{wod.raw}</pre>)
       )}
       {wod.notes && <p className="card-note">{wod.notes}</p>}
       {wod.result && (
@@ -523,6 +525,7 @@ function ScannedWodCard({ wod }: { wod: ScannedWod }) {
           {wod.result}
         </p>
       )}
+      {!photoOnly && <WodPhoto wod={wod} />}
     </Card>
   )
 }
