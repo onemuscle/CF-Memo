@@ -1313,3 +1313,158 @@
 .ready-head .mascot-says {
   margin-top: 14px;
 }
+
+/* ---------- お祝い (はじめての記録・自己ベスト) ---------- */
+
+.celebrate {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: celebrate-fade 0.25s ease both;
+}
+
+@keyframes celebrate-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -20px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall 2.6s cubic-bezier(0.25, 0.6, 0.45, 1) both;
+}
+
+.confetti i.round {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift), 105vh) rotate(var(--spin));
+  }
+}
+
+.celebrate-card {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 20px 20px;
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+  animation: celebrate-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes celebrate-pop {
+  from {
+    transform: scale(0.6) translateY(30px);
+    opacity: 0;
+  }
+}
+
+.celebrate-glow {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 190px;
+  height: 150px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 30%, transparent), transparent);
+  pointer-events: none;
+}
+
+.celebrate-mascot {
+  position: relative;
+  animation: celebrate-jump 0.9s ease-in-out 0.3s 3;
+  transform-origin: 50% 100%;
+}
+
+@keyframes celebrate-jump {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+  50% {
+    transform: translateY(-22px) scale(0.95, 1.06);
+  }
+  80% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+}
+
+.celebrate-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.celebrate-detail {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.celebrate-badge {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 2px 14px;
+}
+
+.celebrate-line {
+  margin: 6px 0 12px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .celebrate-card,
+  .celebrate-mascot {
+    animation: none;
+  }
+}

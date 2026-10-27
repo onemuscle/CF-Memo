@@ -1,6 +1,4 @@
 node_modules
 dist
-# node_modulesからビルド時にコピーされる (scripts/copy-tesseract.mjs)
-public/tesseract
 *.local
 .DS_Store

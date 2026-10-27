@@ -68,8 +68,8 @@ export interface ScannedWod {
   confidence: 'high' | 'medium' | 'low'
   /** 自分のスコア (任意) */
   result: string
-  /** 'claude' = API読み取り / 'tesseract' = 端末内OCR / 'manual' = 手入力 */
-  source: 'claude' | 'tesseract' | 'manual'
+  /** 'claude' / 'openai' = AIで読み取り / 'manual' = 写真のまま保存。'tesseract' は削除した端末内OCRで保存した古い記録 */
+  source: 'claude' | 'openai' | 'tesseract' | 'manual'
   /** 補助トレの判定。読み取れなかった日や休養日には無い */
   advice?: AccessoryAdvice
   imageId?: string
