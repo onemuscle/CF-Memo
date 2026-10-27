@@ -9,7 +9,8 @@
     "prebuild": "node scripts/copy-tesseract.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "check:workout": "node scripts/check-workouts.mjs"
+    "check:workout": "node scripts/check-workouts.mjs",
+    "check:plan": "node scripts/check-plans.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
