@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      // CF MEMO (/)・みんな向け版 FIT MEMO (/app/)・ワークアウト生成サイト きょうトレ (/workout/) の3ページ構成
+      // CF MEMO (/)・みんな向け版 Fitto (/app/)・ワークアウト生成サイト きょうトレ (/workout/) の3ページ構成
       input: {
         main: page('./index.html'),
         app: page('./app/index.html'),

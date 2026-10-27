@@ -1,6 +1,6 @@
 {
-  "name": "FIT MEMO — トレーニングプラン",
-  "short_name": "FIT MEMO",
+  "name": "Fitto — あなたにぴったりのトレーニング",
+  "short_name": "Fitto",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0b0e",

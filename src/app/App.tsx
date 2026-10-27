@@ -297,8 +297,8 @@ export default function App() {
     <div className="app">
       {!overlay && (
         <header className="app-header">
-          <div className="logo">
-            FIT<span>MEMO</span>
+          <div className="logo brand">
+            Fit<span>to</span>
           </div>
           <div className="logo-sub">TRAIN · EAT · REST</div>
           <button className="icon-btn header-btn" onClick={() => setView({ name: 'plan' })} aria-label="プランとプロフィール">

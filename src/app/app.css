@@ -1,10 +1,24 @@
-/* みんな向け版 FIT MEMO (/app/) だけで使うスタイル。共通部分は styles.css */
+/* みんな向け版 Fitto (/app/) だけで使うスタイル。共通部分は styles.css */
+
+/* キャラクターの色 (黒テーマ)。ほかのテーマは下で差し替える */
+:root {
+  --mascot-body: #d9ff7a;
+  --mascot-body-dark: #a8d93a;
+  --mascot-band: #ff6b8a;
+  --mascot-cheek: #ff8fa8;
+  --mascot-ink: #23262d;
+  --mascot-mouth: #ff8fa8;
+}
 
 /* ---------- 色テーマ (黒は styles.css の :root のまま) ---------- */
 
 :root[data-theme='white'],
 :root[data-theme='ivory'],
 :root[data-theme='pink'] {
+  --mascot-body: #ffd3df;
+  --mascot-body-dark: #f29ab3;
+  --mascot-band: #c9456b;
+  --mascot-cheek: #ff7f9f;
   color-scheme: light;
   --on-accent: #ffffff;
   --bar-bg: color-mix(in srgb, var(--bg-raised) 90%, transparent);
@@ -12,6 +26,10 @@
 }
 
 :root[data-theme='white'] {
+  --mascot-body: #c8ef8f;
+  --mascot-body-dark: #95c45a;
+  --mascot-band: #4a90e2;
+  --mascot-cheek: #ff9bb0;
   --bg: #f4f5f7;
   --bg-raised: #ffffff;
   --bg-input: #eceef2;
@@ -37,6 +55,10 @@
 }
 
 :root[data-theme='ivory'] {
+  --mascot-body: #ffe2b8;
+  --mascot-body-dark: #e8b77c;
+  --mascot-band: #c2637b;
+  --mascot-cheek: #ff9f9f;
   --bg: #f5efe4;
   --bg-raised: #fffaf2;
   --bg-input: #efe6d6;
@@ -956,9 +978,7 @@
 
 /* ---------- 今日 ---------- */
 
-.greet {
-  font-size: 13px;
-  color: var(--text-dim);
+.today-says .mascot-bubble {
   font-weight: 600;
 }
 
@@ -1196,4 +1216,100 @@
   font-size: 11.5px;
   color: var(--text-dim);
   line-height: 1.45;
+}
+
+/* ---------- キャラクター ---------- */
+
+.mascot {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.mascot.bounce {
+  animation: mascot-bounce 2.4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+@keyframes mascot-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  45% {
+    transform: translateY(-4px) scale(0.98, 1.02);
+  }
+  60% {
+    transform: translateY(0) scale(1.03, 0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot.bounce {
+    animation: none;
+  }
+}
+
+.mascot-says {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.mascot-bubble {
+  position: relative;
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.mascot-says.small .mascot-bubble {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+/* ---------- ロゴ・キャラクターの配置 ---------- */
+
+.logo.brand {
+  font-family: 'Nunito', var(--font-body);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.welcome-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.welcome-logo.brand {
+  font-size: 38px;
+  line-height: 1.1;
+}
+
+.welcome-title {
+  margin-top: 18px;
+}
+
+.ob-says {
+  margin-bottom: 14px;
+}
+
+.gen-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: -16px;
+}
+
+.ready-head .mascot-says {
+  margin-top: 14px;
 }

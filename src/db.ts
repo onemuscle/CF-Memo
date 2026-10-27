@@ -3,7 +3,7 @@ import type { Memo, PR, ScannedWod, StoredImage } from './types'
 // v2: WODスキャン結果 (wods) と設定 (settings) を追加
 const DB_VERSION = 2
 
-/** CF MEMO (/) と みんな向け版 FIT MEMO (/app/) は同じオリジンなので、DB名で記録を分ける */
+/** CF MEMO (/) と みんな向け版 Fitto (/app/) は同じオリジンなので、DB名で記録を分ける */
 let dbName = 'cf-memo-db'
 let dbPromise: Promise<IDBDatabase> | null = null
 

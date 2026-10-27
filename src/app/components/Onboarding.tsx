@@ -18,6 +18,7 @@ import {
 } from '../profile'
 import { weeklyRate, weeksToTarget } from '../plan/nutrition'
 import { THEMES, applyTheme, savedTheme, type Theme } from '../theme'
+import Mascot, { MascotSays, type Mood } from './Mascot'
 
 type Draft = Partial<Profile>
 
@@ -362,6 +363,30 @@ const STEPS: Step[] = [
 /** 進捗の区切り (確認を除く) */
 const SECTIONS = [...new Set(STEPS.map(s => s.section))].filter(s => s !== '確認')
 
+/** 質問ごとのキャラクターのひとこと */
+const SAY: Record<string, (d: Draft) => [Mood, string]> = {
+  theme: () => ['smile', 'はじめまして、Fitto だよ！まずは好きな色をえらんでね'],
+  name: () => ['happy', 'なんて呼べばいいかな？'],
+  goal: d => ['happy', d.name ? `${d.name}さん、よろしくね！` : 'よろしくね！いっしょにがんばろう'],
+  sex: () => ['smile', 'カロリーの計算に使うよ'],
+  body: () => ['smile', '数字はこの端末の中にだけしまっておくね'],
+  level: () => ['think', 'レベルに合わせて組むから安心してね'],
+  target: () => ['wink', 'ムリなく、でも確実にいこう'],
+  injuries: () => ['think', '痛いところは、やさしい種目に入れ替えるね'],
+  places: () => ['happy', 'どこでもいっしょにがんばれるよ'],
+  gear: () => ['smile', 'なにもなくても大丈夫！'],
+  quiet: () => ['wink', 'ご近所さんにもやさしくね'],
+  days: () => ['smile', 'お休みの日も、大事なトレーニングだよ'],
+  minutes: () => ['happy', '短い時間でも、ちゃんと効くメニューにするね'],
+  trainTime: () => ['smile', 'ごはんのタイミングを合わせるよ'],
+  cardio: () => ['think', '体力をつけたいなら、有酸素の日もおすすめ'],
+  activity: () => ['smile', 'ふだんの動きも、消費カロリーになるんだ'],
+  meals: () => ['happy', '食べる回数に合わせて、1回の量を分けるね'],
+  weeks: () => ['cheer', '12週間あれば、見た目が変わってくるよ！'],
+  start: () => ['cheer', 'いよいよだね！'],
+  confirm: () => ['cheer', 'これでプランを作るよ！'],
+}
+
 // ---------------------------------------------------------------- 入力チェック
 
 const RANGE = {
@@ -541,6 +566,11 @@ export default function Onboarding({ initial, onDone, onExit }: Props) {
       </header>
 
       <main className="ob-main" key={step.id}>
+        {SAY[step.id] && (
+          <MascotSays mood={SAY[step.id](d)[0]} size={56} className="small ob-says">
+            {SAY[step.id](d)[1]}
+          </MascotSays>
+        )}
         <h1 className="ob-title">{step.title(d)}</h1>
         {step.sub && <p className="ob-sub">{step.sub(d)}</p>}
 
@@ -865,16 +895,21 @@ export function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="ob welcome">
       <div className="welcome-hero">
-        <div className="logo welcome-logo">
-          FIT<span>MEMO</span>
+        <div className="welcome-top">
+          <div>
+            <div className="logo brand welcome-logo">
+              Fit<span>to</span>
+            </div>
+            <p className="logo-sub">TRAIN · EAT · REST</p>
+          </div>
+          <Mascot mood="cheer" size={112} bounce />
         </div>
-        <p className="logo-sub">TRAIN · EAT · REST</p>
         <h1 className="welcome-title">
           あなた専用の
           <br />
           トレーニングプランを。
         </h1>
-        <p className="welcome-sub">いくつかの質問に答えるだけで、毎日のメニューと食事の目安が決まります。</p>
+        <p className="welcome-sub">いくつかの質問に答えるだけで、あなたにぴったりの毎日のメニューと食事の目安が決まります。</p>
       </div>
       <ul className="welcome-points">
         <li>

@@ -19,6 +19,7 @@ import {
 import { dayWorkout, type DayCondition, type DayWorkout } from '../plan/workout'
 import { SWAP_TABLE, dayMeals, targetsFor, weightAt, weeklyRate } from '../plan/nutrition'
 import { CONDITION_HELP, PROGRESSION, REST_TIPS, mealGuide, rulesFor } from '../plan/guide'
+import { MascotSays, type Mood } from './Mascot'
 
 interface Props {
   plan: Plan
@@ -87,6 +88,26 @@ function useScannedWod(date: string): ScannedWod | undefined {
   return wod
 }
 
+/** 表示している日に合わせたキャラクターのひとこと */
+function cheerFor(plan: Plan, day: DayPlan, untilStart: number, isToday: boolean): [Mood, string] {
+  const when = isToday ? '今日' : 'この日'
+  if (untilStart > 0 && day.index === 1) return ['wink', `あと${untilStart}日でスタート！1日目のメニューを予習しておこう`]
+  switch (day.session.type) {
+    case 'rest':
+      return ['sleep', `${when}はゆっくり休もう。回復もトレーニングのうちだよ`]
+    case 'review':
+      return ['cheer', `${plan.profile.weeks}週間おつかれさま！がんばった体を振り返ってみよう`]
+    case 'cardio':
+      return ['smile', `${when}は有酸素の日。おしゃべりできるくらいのペースでね`]
+    case 'hiit':
+      return ['happy', `${when}はインターバル！短い時間でいっきに燃やそう`]
+    default:
+      if (day.phase.key === 'deload') return ['wink', '今週はディロード。軽めでいいから、来週に向けて回復しよう']
+      if (day.phase.key === 'push') return ['cheer', `${when}は${sessionTitle(day.session)}。強化の週、最後のセットは攻めてみよう！`]
+      return ['happy', `${when}は${sessionTitle(day.session)}。いっしょにがんばろう！`]
+  }
+}
+
 function greeting(): string {
   const h = new Date().getHours()
   if (h < 4) return 'こんばんは'
@@ -111,10 +132,18 @@ export default function PlanToday({ plan, onWriteMemo, onOpenPlan, onNewPlan }: 
 
   return (
     <div className="page today-page">
-      <p className="greet">
-        {greeting()}
-        {p.name && `、${p.name}さん`}
-      </p>
+      {day && (
+        <MascotSays mood={cheerFor(plan, day, untilStart, isToday)[0]} size={60} className="small today-says">
+          {isToday && (
+            <>
+              {greeting()}
+              {p.name && `、${p.name}さん`}！
+              <br />
+            </>
+          )}
+          {cheerFor(plan, day, untilStart, isToday)[1]}
+        </MascotSays>
+      )}
 
       {untilStart > 0 && (
         <div className="countdown" style={accent('var(--c-cyan)')}>
