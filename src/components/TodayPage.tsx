@@ -283,7 +283,7 @@ function ScannedWodBody({ wod }: { wod: ScannedWod }) {
 
       <p className="card-note">
         ここが高負荷なら、この後のRun・Burpeeは中止する。
-        {wod.confidence !== 'high' && wod.source === 'claude' && (
+        {wod.confidence !== 'high' && (wod.source === 'claude' || wod.source === 'openai') && (
           <> 読み取りにあいまいな箇所があります。原本の写真も確認してください。</>
         )}
         {wod.source === 'tesseract' && <> 端末内OCRの結果です。誤りが多い場合があります。</>}

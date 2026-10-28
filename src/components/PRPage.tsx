@@ -97,7 +97,50 @@ function toKg(pr: PR): number | null {
   return pr.unit === 'lb' ? pr.weight * KG_PER_LB : pr.weight
 }
 
-function weightLabel(pr: PR): string {
+/** タイムは短いほど、ラウンドは多いほど良い。比べられない記録は null */
+function scoreValue(pr: PR): { type: 'time' | 'rounds'; value: number } | null {
+  const sc = parseScore(pr.score)
+  if (sc.type === 'time') return { type: 'time', value: sc.min * 60 + sc.sec }
+  if (sc.type === 'rounds') return { type: 'rounds', value: sc.rounds * 1000 + sc.extra }
+  return null
+}
+
+export type Milestone =
+  | { kind: 'first-ever'; pr: PR }
+  | { kind: 'first-movement'; pr: PR }
+  | { kind: 'pr'; pr: PR; gain: string }
+
+/**
+ * 保存した記録が「はじめての記録」「その種目のはじめての記録」「自己ベスト更新」のどれかを返す。
+ * prs は保存する前の一覧 (編集した記録は自分自身と比べない)。
+ */
+export function milestoneOf(prs: PR[], saved: PR): Milestone | null {
+  const others = prs.filter(p => p.id !== saved.id)
+  if (others.length === 0) return { kind: 'first-ever', pr: saved }
+  const same = others.filter(p => p.movementKey === saved.movementKey)
+  if (same.length === 0) return { kind: 'first-movement', pr: saved }
+
+  const kg = toKg(saved)
+  if (kg != null) {
+    const prev = same.map(toKg).filter((v): v is number => v != null)
+    if (prev.length && kg > Math.max(...prev) + 1e-9) {
+      const diff = Math.round((kg - Math.max(...prev)) * 10) / 10
+      return { kind: 'pr', pr: saved, gain: `+${diff}kg` }
+    }
+    return null
+  }
+  const mine = scoreValue(saved)
+  if (!mine) return null
+  const prev = same.map(scoreValue).filter((v): v is NonNullable<typeof v> => v?.type === mine.type).map(v => v.value)
+  if (!prev.length) return null
+  if (mine.type === 'time' && mine.value < Math.min(...prev)) {
+    return { kind: 'pr', pr: saved, gain: `${Math.min(...prev) - mine.value}秒短縮` }
+  }
+  if (mine.type === 'rounds' && mine.value > Math.max(...prev)) return { kind: 'pr', pr: saved, gain: '記録更新' }
+  return null
+}
+
+export function weightLabel(pr: PR): string {
   if (pr.weight == null) return pr.score || '—'
   return `${pr.weight}${pr.unit}${pr.reps ? ` × ${pr.reps}` : ''}`
 }

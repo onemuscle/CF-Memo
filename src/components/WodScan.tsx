@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
-import Tesseract from 'tesseract.js'
 import {
-  API_KEY_SETTING,
+  KEY_SETTING,
+  OPENAI_MODELS_SETTING,
+  PROVIDER_LABEL,
+  PROVIDER_SETTING,
   QUALITY_SETTING,
   QUALITY_TIERS,
   checkApiKey,
   judgeAccessory,
+  openAiModelsOf,
+  providerOf,
   qualityOf,
+  tierInfo,
   transcribeWod,
   wodToText,
+  type AiConfig,
+  type OpenAiModels,
+  type Provider,
   type Quality,
   type WodDraft,
 } from '../ai'
@@ -25,11 +33,9 @@ interface Props {
   onSaved: (memoId: string) => void
   /** 読み取ったWODから今夜の補助トレを判定する (CF MEMO の12週プラン専用) */
   advise?: boolean
-  /** 端末内OCRのアセット (tesseract/・tessdata/) があるディレクトリ (このページからの相対パス) */
-  ocrBase?: string
 }
 
-type Phase = 'pick' | 'ready' | 'ocr' | 'edit'
+type Phase = 'pick' | 'ready' | 'reading' | 'edit'
 
 const CONFIDENCE_LABEL: Record<WodDraft['confidence'], string> = {
   high: '読み取り良好',
@@ -47,11 +53,10 @@ const emptyDraft = (): WodDraft => ({
   source: 'manual',
 })
 
-export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props) {
+export default function WodScan({ onSaved, advise = true }: Props) {
   const [phase, setPhase] = useState<Phase>('pick')
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>()
-  const [progress, setProgress] = useState(0)
   const [draft, setDraft] = useState<WodDraft>(emptyDraft)
   const [date, setDate] = useState(today())
   const [title, setTitle] = useState('')
@@ -63,7 +68,9 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
   const [advisedDate, setAdvisedDate] = useState('')
   const [error, setError] = useState('')
 
-  const [apiKey, setApiKey] = useState('')
+  const [provider, setProvider] = useState<Provider>('anthropic')
+  const [keys, setKeys] = useState<Record<Provider, string>>({ anthropic: '', openai: '' })
+  const [openaiModels, setOpenaiModels] = useState<OpenAiModels>(() => openAiModelsOf(undefined))
   const [quality, setQuality] = useState<Quality>('standard')
   const [keyInput, setKeyInput] = useState('')
   const [keyOpen, setKeyOpen] = useState(false)
@@ -72,10 +79,24 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
   /** 文字を読み取らずに写真だけで保存するところ */
   const photoOnly = phase === 'edit' && draft.source === 'manual'
 
+  const apiKey = keys[provider]
+  const ai: AiConfig = { provider, apiKey, openaiModels }
+
   useEffect(() => {
-    getSetting(API_KEY_SETTING).then(v => setApiKey(v ?? ''))
+    getSetting(PROVIDER_SETTING).then(v => setProvider(providerOf(v)))
+    getSetting(KEY_SETTING.anthropic).then(v => setKeys(k => ({ ...k, anthropic: v ?? '' })))
+    getSetting(KEY_SETTING.openai).then(v => setKeys(k => ({ ...k, openai: v ?? '' })))
+    getSetting(OPENAI_MODELS_SETTING).then(v => setOpenaiModels(openAiModelsOf(v)))
     getSetting(QUALITY_SETTING).then(v => setQuality(qualityOf(v)))
   }, [])
+
+  function pickProvider(p: Provider) {
+    setProvider(p)
+    setKeyInput('')
+    // 使うAIはタップした時点で保存する
+    putSetting(PROVIDER_SETTING, p)
+    setKeyStatus(keys[p] ? `${PROVIDER_LABEL[p]} で読み取ります。` : `${PROVIDER_LABEL[p]} のAPIキーを入力してください。`)
+  }
 
   function pickQuality(q: Quality) {
     setQuality(q)
@@ -130,7 +151,7 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
       const a = await judgeAccessory(
         d,
         { date: forDate, pm: day.pm, note: day.note, exercises: planned, topRules: TOP_RULES },
-        apiKey,
+        ai,
         quality,
       )
       setDraft(prev => ({ ...prev, advice: { ...a, forDate } }))
@@ -151,14 +172,13 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
     setPhase('edit')
   }
 
-  /** Claudeで読み取る。キー未設定なら呼ばれない */
-  async function runClaude() {
+  /** AIで読み取る。キー未設定なら呼ばれない */
+  async function runAi() {
     if (!file) return
-    setPhase('ocr')
-    setProgress(0)
+    setPhase('reading')
     setError('')
     try {
-      const d = await transcribeWod(file, apiKey, quality)
+      const d = await transcribeWod(file, ai, quality)
       applyDraft(d)
       // 読み取れた内容をそのまま使って、続けて補助トレを判定する
       await runAdvice(d, date)
@@ -169,51 +189,32 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
     }
   }
 
-  /** 端末内OCR。オフライン用の控え。手書きはほぼ読めない */
-  async function runTesseract() {
-    if (!file) return
-    setPhase('ocr')
-    setProgress(0)
-    setError('')
-    try {
-      // OCRアセットはすべてアプリに同梱 (CDN不要・オフライン動作)
-      const assetBase = new URL(ocrBase, document.baseURI).href
-      const { data } = await Tesseract.recognize(file, 'jpn+eng', {
-        workerPath: `${assetBase}tesseract/worker.min.js`,
-        corePath: `${assetBase}tesseract`,
-        langPath: `${assetBase}tessdata`,
-        logger: m => {
-          if (m.status === 'recognizing text') setProgress(m.progress)
-        },
-      })
-      applyDraft({ ...emptyDraft(), raw: data.text.trim(), source: 'tesseract' })
-    } catch (err) {
-      console.error(err)
-      setError('端末内OCRに失敗しました。')
-      setPhase('ready')
-    }
-  }
-
   async function saveKey() {
     const v = keyInput.trim()
     if (!v) return
     setKeyStatus('確認中…')
     try {
-      await checkApiKey(v)
-      await putSetting(API_KEY_SETTING, v)
-      setApiKey(v)
+      const models = await checkApiKey(provider, v)
+      if (models) {
+        await putSetting(OPENAI_MODELS_SETTING, JSON.stringify(models))
+        setOpenaiModels(models)
+      }
+      await putSetting(KEY_SETTING[provider], v)
+      setKeys(k => ({ ...k, [provider]: v }))
       setKeyInput('')
       setKeyStatus('保存しました。')
       setKeyOpen(false)
     } catch (err) {
       console.error(err)
-      setKeyStatus('このキーでは接続できませんでした。')
+      setKeyStatus(
+        `このキーでは接続できませんでした。${err instanceof Error && err.message.startsWith('OpenAI') ? `(${err.message})` : ''}`,
+      )
     }
   }
 
   async function clearKey() {
-    await deleteSetting(API_KEY_SETTING)
-    setApiKey('')
+    await deleteSetting(KEY_SETTING[provider])
+    setKeys(k => ({ ...k, [provider]: '' }))
     setKeyStatus('削除しました。')
   }
 
@@ -286,7 +287,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
           </button>
 
           <ApiKeyPanel
-            apiKey={apiKey}
+            ai={ai}
+            onPickProvider={pickProvider}
             open={keyOpen}
             setOpen={setKeyOpen}
             keyInput={keyInput}
@@ -310,8 +312,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
         <div className="scan-actions">
           {apiKey ? (
             <>
-              <button className="btn-primary wide" onClick={runClaude}>
-                読み取る ({QUALITY_TIERS[quality].label} · {QUALITY_TIERS[quality].cost})
+              <button className="btn-primary wide" onClick={runAi}>
+                {provider === 'openai' ? 'ChatGPT' : 'Claude'} で読み取る ({tierInfo(ai, quality).label} · {tierInfo(ai, quality).cost})
               </button>
               <button className="btn-ghost wide" onClick={keepPhoto}>
                 読み取らずに写真のまま保存
@@ -328,9 +330,6 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
               <button className="btn-ghost wide" onClick={() => setKeyOpen(true)}>
                 APIキーを設定して読み取る
               </button>
-              <button className="scan-text-link" onClick={runTesseract}>
-                端末内OCRで文字も読んでみる (活字向け・手書きはほぼ読めません)
-              </button>
             </>
           )}
           <button className="btn-ghost wide" onClick={reset}>
@@ -338,7 +337,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
           </button>
           {!apiKey && (
             <ApiKeyPanel
-              apiKey={apiKey}
+              ai={ai}
+              onPickProvider={pickProvider}
               open={keyOpen}
               setOpen={setKeyOpen}
               keyInput={keyInput}
@@ -353,20 +353,13 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
         </div>
       )}
 
-      {phase === 'ocr' && (
+      {phase === 'reading' && (
         <div className="scan-progress">
           <div className="progress-track">
-            <div
-              className={`progress-fill${progress === 0 ? ' indeterminate' : ''}`}
-              style={progress > 0 ? { width: `${Math.round(progress * 100)}%` } : undefined}
-            />
+            <div className="progress-fill indeterminate" />
           </div>
-          <p>{progress > 0 ? `解析中… ${Math.round(progress * 100)}%` : '読み取り中…'}</p>
-          <p className="empty-sub">
-            {progress > 0
-              ? '初回は認識モデルのダウンロードに少し時間がかかります。'
-              : '手書きの文字を読み取っています。10〜20秒ほどかかります。'}
-          </p>
+          <p>読み取り中…</p>
+          <p className="empty-sub">手書きの文字を読み取っています。10〜20秒ほどかかります。</p>
         </div>
       )}
 
@@ -378,9 +371,7 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
             </p>
           ) : (
             <p className={`scan-hint${draft.confidence === 'high' ? '' : ' warn'}`}>
-              {draft.source === 'tesseract'
-                ? '⚠ 端末内OCRは手書きに弱いため、内容を必ず確認してください。'
-                : `読み取り: ${CONFIDENCE_LABEL[draft.confidence]}。保存前に確認・修正してください。`}
+              {`読み取り: ${CONFIDENCE_LABEL[draft.confidence]}。保存前に確認・修正してください。`}
             </p>
           )}
 
@@ -497,7 +488,8 @@ export default function WodScan({ onSaved, advise = true, ocrBase = '.' }: Props
 }
 
 function ApiKeyPanel({
-  apiKey,
+  ai,
+  onPickProvider,
   open,
   setOpen,
   keyInput,
@@ -508,7 +500,8 @@ function ApiKeyPanel({
   onSave,
   onClear,
 }: {
-  apiKey: string
+  ai: AiConfig
+  onPickProvider: (p: Provider) => void
   open: boolean
   setOpen: (v: boolean) => void
   keyInput: string
@@ -519,21 +512,35 @@ function ApiKeyPanel({
   onSave: () => void
   onClear: () => void
 }) {
+  const apiKey = ai.apiKey
+  const tier = tierInfo(ai, quality)
   return (
     <div className="key-panel">
       <button className="key-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span>読み取りの設定</span>
         <span className="key-state">
-          {apiKey ? QUALITY_TIERS[quality].label : '未設定'}
+          {apiKey ? `${ai.provider === 'openai' ? 'ChatGPT' : 'Claude'} · ${tier.label}` : '未設定'}
         </span>
       </button>
 
       {open && (
         <div className="key-body">
           <p className="fine">
-            手書きのホワイトボードは端末内OCRではほとんど読めません。Anthropic の APIキーを
-            設定すると、画像をそのまま読み取って種目・回数・重量まで取り出します。
+            Claude (Anthropic) か ChatGPT (OpenAI) の APIキーを設定すると、手書きのボードの写真から
+            種目・回数・重量まで読み取ります。キーがなくても、写真のまま保存はできます。
           </p>
+          <label className="field-label">使うAI</label>
+          <div className="chip-row">
+            {(['anthropic', 'openai'] as const).map(p => (
+              <button
+                key={p}
+                className={`chip ${p === ai.provider ? 'chip-on' : ''}`}
+                onClick={() => onPickProvider(p)}
+              >
+                {PROVIDER_LABEL[p]}
+              </button>
+            ))}
+          </div>
           <p className="fine">
             キーは<strong>この端末のブラウザ内だけ</strong>に保存され、GitHubにもサーバーにも
             送信されません。ブラウザのサイトデータを消すと一緒に消えます。
@@ -554,8 +561,7 @@ function ApiKeyPanel({
               </div>
               <p className="fine">
                 <strong>選ぶとその場で保存されます。</strong>
-                {QUALITY_TIERS[quality].label} — {QUALITY_TIERS[quality].cost}（
-                {QUALITY_TIERS[quality].model}）。
+                {tier.label} — {tier.cost}（{tier.model}）。
                 {quality === 'eco' &&
                   'いちばん安い代わりに読み間違いが増えます。同じ写真を標準と見比べて決めてください。'}
                 {quality === 'standard' && '普段はこれで十分です。読めないボードだけ高精度に上げてください。'}
@@ -565,14 +571,14 @@ function ApiKeyPanel({
           )}
 
           <label className="field-label" htmlFor="api-key">
-            Anthropic APIキー
+            {ai.provider === 'openai' ? 'OpenAI' : 'Anthropic'} APIキー
           </label>
           <input
             id="api-key"
             className="input"
             type="password"
             autoComplete="off"
-            placeholder={apiKey ? '変更するときだけ入力' : 'sk-ant-...'}
+            placeholder={apiKey ? '変更するときだけ入力' : ai.provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
             value={keyInput}
             onChange={e => setKeyInput(e.target.value)}
           />

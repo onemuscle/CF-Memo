@@ -4,13 +4,14 @@ import type { Memo, PR } from '../types'
 import MemoList from '../components/MemoList'
 import MemoDetail from '../components/MemoDetail'
 import MemoEditor, { type MemoDraft } from '../components/MemoEditor'
-import { PRList, MovementDetail, PRForm } from '../components/PRPage'
+import { PRList, MovementDetail, PRForm, milestoneOf, weightLabel, type Milestone } from '../components/PRPage'
 import WodScan from '../components/WodScan'
 import PartsWorkout, { type PartsPlace } from '../components/PartsWorkout'
 import { NoteIcon, TrophyIcon, ScanIcon, TodayIcon, DumbbellIcon, UserIcon } from '../components/Icons'
 import { ENV_LABEL } from '../workout/engine/labels'
 import type { Env, Gear } from '../workout/engine'
 import Onboarding, { Welcome } from './components/Onboarding'
+import Celebrate, { type Celebration } from './components/Celebrate'
 import PlanSummary, { Generating } from './components/PlanSummary'
 import PlanToday from './components/PlanToday'
 import { PROFILE_SETTING, loadProfile, saveProfile, type Profile } from './profile'
@@ -44,6 +45,19 @@ const PARTS_ENVS: Env[] = ['gym', 'box', 'home', 'outdoor']
 const HOME_GEAR: Gear[] = ['dumbbell', 'band', 'kettlebell', 'bench', 'bar']
 const OUTDOOR_GEAR: Gear[] = ['bar', 'bench', 'stairs', 'band']
 
+/** 記録の節目をお祝いの文面にする */
+function celebrationOf(m: Milestone): Celebration {
+  const detail = `${m.pr.movement}  ${weightLabel(m.pr)}`
+  switch (m.kind) {
+    case 'first-ever':
+      return { title: 'はじめての記録！', detail, line: 'ここからがスタート！次はこの記録を超えにいこう' }
+    case 'first-movement':
+      return { title: 'はじめての種目！', detail, line: '記録が増えるほど、伸びが見えてくるよ。また測ってみよう' }
+    case 'pr':
+      return { title: '自己ベスト更新！', detail, badge: m.gain, line: 'すごい！積み上げてきた成果だね。今日はしっかり食べて休もう' }
+  }
+}
+
 export default function App() {
   const [stage, setStage] = useState<Stage>('loading')
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -51,6 +65,8 @@ export default function App() {
   const [view, setView] = useState<View>({ name: 'home' })
   const [memos, setMemos] = useState<Memo[]>([])
   const [prs, setPRs] = useState<PR[]>([])
+  const [celebration, setCelebration] = useState<Celebration | null>(null)
+  const closeCelebration = useCallback(() => setCelebration(null), [])
 
   const plan = useMemo(() => (profile ? buildPlan(profile) : null), [profile])
 
@@ -174,8 +190,16 @@ export default function App() {
             memo={memo}
             draft={view.draft}
             onSaved={async saved => {
+              const first = !memo && memos.length === 0
               await refresh()
               setView({ name: 'memo-detail', id: saved.id })
+              if (first) {
+                setCelebration({
+                  title: 'はじめてのメモ！',
+                  detail: saved.title || 'メモ',
+                  line: 'その日の気づきを残しておくと、あとで自分の味方になるよ',
+                })
+              }
             }}
             onCancel={() => (view.id ? setView({ name: 'memo-detail', id: view.id }) : home())}
           />
@@ -200,8 +224,11 @@ export default function App() {
             prs={prs}
             defaultMovement={view.movement}
             onSaved={async saved => {
+              // 保存前の一覧と比べて、はじめての記録・自己ベストならお祝いする
+              const m = milestoneOf(prs, saved)
               await refresh()
               setView({ name: 'movement', movementKey: saved.movementKey })
+              if (m) setCelebration(celebrationOf(m))
             }}
             onDeleted={async deleted => {
               await refresh()
@@ -280,7 +307,6 @@ export default function App() {
         return (
           <WodScan
             advise={false}
-            ocrBase=".."
             onSaved={async memoId => {
               await refresh()
               setTab('memos')
@@ -307,6 +333,7 @@ export default function App() {
         </header>
       )}
       <main className="app-main">{overlay ? renderView() : renderTab()}</main>
+      {celebration && <Celebrate c={celebration} onClose={closeCelebration} />}
       {!overlay && (
         <nav className="tabbar">
           {TABS.map(({ key, label, icon: Icon }) => (

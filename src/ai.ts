@@ -2,15 +2,42 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AccessoryAdvice, ScannedWod, WodMovement } from './types'
 
 /**
- * ホワイトボードのWODをClaudeの画像入力で読み取る。
+ * ホワイトボードのWODをAIの画像入力で読み取る。Anthropic (Claude) と OpenAI (ChatGPT) のどちらか。
  *
- * Tesseractは活字向けのOCRエンジンで、手書きのホワイトボードはほぼ読めない。
- * こちらは画像をそのままモデルに渡して「WODとして」解釈させるので、
- * かすれ・斜め・記号 (21-15-9, 43/30kg, ↑↓) にも耐える。
+ * 画像をそのままモデルに渡して「WODとして」解釈させるので、
+ * 手書き・かすれ・斜め・記号 (21-15-9, 43/30kg, ↑↓) にも耐える。
  */
 
+export type Provider = 'anthropic' | 'openai'
+
+export const PROVIDER_SETTING = 'ai-provider'
 export const API_KEY_SETTING = 'anthropic-api-key'
+export const OPENAI_KEY_SETTING = 'openai-api-key'
+/** OpenAI はモデル名の入れ替わりが早いので、キーの確認時に使えるモデルを選んで控えておく */
+export const OPENAI_MODELS_SETTING = 'openai-models'
 export const QUALITY_SETTING = 'read-quality'
+
+export const PROVIDER_LABEL: Record<Provider, string> = {
+  anthropic: 'Claude (Anthropic)',
+  openai: 'ChatGPT (OpenAI)',
+}
+
+export const KEY_SETTING: Record<Provider, string> = {
+  anthropic: API_KEY_SETTING,
+  openai: OPENAI_KEY_SETTING,
+}
+
+export function providerOf(v: string | undefined): Provider {
+  return v === 'openai' ? 'openai' : 'anthropic'
+}
+
+/** 読み取り・判定に使うAIの設定 */
+export interface AiConfig {
+  provider: Provider
+  apiKey: string
+  /** OpenAI の品質ごとのモデル (checkApiKey で選んだもの) */
+  openaiModels?: OpenAiModels
+}
 
 export type Quality = 'eco' | 'standard' | 'best'
 
@@ -50,6 +77,171 @@ export const QUALITY_TIERS: Record<
 }
 
 export const DEFAULT_QUALITY: Quality = 'standard'
+
+export type OpenAiModels = Record<Quality, string>
+
+/**
+ * OpenAI の品質ごとの候補 (先頭ほど優先)。キーで使えるモデルの一覧から、いちばん前にあるものを使う。
+ * 画像入力と json_schema の構造化出力に対応したモデルだけを並べている。
+ */
+const OPENAI_CANDIDATES: Record<Quality, string[]> = {
+  eco: ['gpt-5.6-luna', 'gpt-5.4-nano', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4o-mini'],
+  standard: ['gpt-5.6-terra', 'gpt-5.4-mini', 'gpt-5-mini', 'gpt-4.1', 'gpt-4o'],
+  best: ['gpt-5.6-sol', 'gpt-5.4', 'gpt-5', 'gpt-4.1', 'gpt-4o'],
+}
+
+export const OPENAI_COST: Record<Quality, string> = {
+  eco: '1回1円未満',
+  standard: '1回1〜2円',
+  best: '1回3〜5円',
+}
+
+/** 保存しておいたモデルの選択を読む (壊れていれば既定の候補の先頭) */
+export function openAiModelsOf(v: string | undefined): OpenAiModels {
+  try {
+    const m = JSON.parse(v ?? '') as Partial<OpenAiModels>
+    if (m.eco && m.standard && m.best) return m as OpenAiModels
+  } catch {
+    // 未保存
+  }
+  return { eco: OPENAI_CANDIDATES.eco[0], standard: OPENAI_CANDIDATES.standard[0], best: OPENAI_CANDIDATES.best[0] }
+}
+
+/** 品質ごとの表示 (設定画面用) */
+export function tierInfo(ai: Pick<AiConfig, 'provider' | 'openaiModels'>, q: Quality): { label: string; model: string; cost: string } {
+  if (ai.provider === 'openai') {
+    return { label: QUALITY_TIERS[q].label, model: (ai.openaiModels ?? openAiModelsOf(undefined))[q], cost: OPENAI_COST[q] }
+  }
+  return QUALITY_TIERS[q]
+}
+
+// ---------------------------------------------------------------- AIの呼び出し (共通)
+
+interface StructuredRequest {
+  system: string
+  text: string
+  image?: { data: string; mediaType: 'image/jpeg' }
+  schema: Record<string, unknown>
+  schemaName: string
+}
+
+class AiStop extends Error {}
+
+/** 構造化出力 (JSON) を1回もらう。返り値は JSON の文字列 */
+async function structured(ai: AiConfig, quality: Quality, req: StructuredRequest): Promise<string> {
+  return ai.provider === 'openai' ? callOpenAi(ai, quality, req) : callAnthropic(ai.apiKey, quality, req)
+}
+
+async function callAnthropic(apiKey: string, quality: Quality, req: StructuredRequest): Promise<string> {
+  const tier = QUALITY_TIERS[quality]
+  const client = new Anthropic({
+    apiKey,
+    // ブラウザから直接叩くための明示。SDKが anthropic-dangerous-direct-browser-access を付ける
+    dangerouslyAllowBrowser: true,
+    maxRetries: 2,
+  })
+  const res = await client.messages.create({
+    model: tier.model,
+    max_tokens: 16000,
+    system: req.system,
+    output_config: {
+      format: { type: 'json_schema', schema: req.schema },
+      // Haiku 4.5 は effort 非対応。送るとエラーになるので段に持たせている
+      ...(tier.effort ? { effort: tier.effort } : {}),
+    },
+    messages: [
+      {
+        role: 'user',
+        content: [
+          ...(req.image
+            ? [{ type: 'image' as const, source: { type: 'base64' as const, media_type: req.image.mediaType, data: req.image.data } }]
+            : []),
+          { type: 'text' as const, text: req.text },
+        ],
+      },
+    ],
+  })
+  if (res.stop_reason === 'refusal') throw new AiStop('refusal')
+  if (res.stop_reason === 'max_tokens') throw new AiStop('max_tokens')
+  const block = res.content.find(b => b.type === 'text')
+  if (!block || block.type !== 'text') throw new AiStop('empty')
+  return block.text
+}
+
+const OPENAI_URL = 'https://api.openai.com/v1'
+
+async function openAiError(res: Response): Promise<Error> {
+  let message = `OpenAI API エラー (${res.status})`
+  try {
+    const body = (await res.json()) as { error?: { message?: string } }
+    if (body.error?.message) message += `: ${body.error.message}`
+  } catch {
+    // 本文が JSON でない
+  }
+  return new Error(message)
+}
+
+async function callOpenAi(ai: AiConfig, quality: Quality, req: StructuredRequest): Promise<string> {
+  const model = (ai.openaiModels ?? openAiModelsOf(undefined))[quality]
+  const res = await fetch(`${OPENAI_URL}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ai.apiKey}` },
+    body: JSON.stringify({
+      model,
+      max_completion_tokens: 16000,
+      messages: [
+        { role: 'system', content: req.system },
+        {
+          role: 'user',
+          content: [
+            ...(req.image
+              ? [{ type: 'image_url', image_url: { url: `data:${req.image.mediaType};base64,${req.image.data}`, detail: 'high' } }]
+              : []),
+            { type: 'text', text: req.text },
+          ],
+        },
+      ],
+      response_format: { type: 'json_schema', json_schema: { name: req.schemaName, strict: true, schema: req.schema } },
+    }),
+  })
+  if (!res.ok) throw await openAiError(res)
+  const body = (await res.json()) as {
+    choices?: { finish_reason?: string; message?: { content?: string | null; refusal?: string | null } }[]
+  }
+  const choice = body.choices?.[0]
+  if (choice?.message?.refusal) throw new AiStop('refusal')
+  if (choice?.finish_reason === 'length') throw new AiStop('max_tokens')
+  if (!choice?.message?.content) throw new AiStop('empty')
+  return choice.message.content
+}
+
+/**
+ * APIキーが生きているかの確認。
+ * Anthropic はいちばん安いモデルで1往復、OpenAI はモデル一覧 (無料) を取り、品質ごとに使うモデルを決めて返す。
+ */
+export async function checkApiKey(provider: Provider, apiKey: string): Promise<OpenAiModels | undefined> {
+  if (provider === 'anthropic') {
+    const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 })
+    await client.messages.create({
+      model: QUALITY_TIERS.eco.model,
+      max_tokens: 16,
+      messages: [{ role: 'user', content: 'ok とだけ返してください。' }],
+    })
+    return undefined
+  }
+  const res = await fetch(`${OPENAI_URL}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
+  if (!res.ok) throw await openAiError(res)
+  const body = (await res.json()) as { data?: { id: string }[] }
+  const ids = new Set((body.data ?? []).map(m => m.id))
+  const pick = (q: Quality) => OPENAI_CANDIDATES[q].find(id => ids.has(id))
+  const models = { eco: pick('eco'), standard: pick('standard'), best: pick('best') }
+  if (!models.eco && !models.standard && !models.best) {
+    throw new Error('このキーで画像の読み取りに使えるモデルが見つかりませんでした。')
+  }
+  // 見つからない段は、見つかった段のモデルで代用する
+  const any = (models.standard ?? models.best ?? models.eco)!
+  return { eco: models.eco ?? any, standard: models.standard ?? any, best: models.best ?? any }
+}
 
 export function qualityOf(v: string | undefined): Quality {
   return v === 'eco' || v === 'standard' || v === 'best' ? v : DEFAULT_QUALITY
@@ -152,59 +344,26 @@ interface Parsed {
 
 export type WodDraft = Omit<ScannedWod, 'date' | 'result' | 'updatedAt'>
 
-export async function transcribeWod(
-  file: File,
-  apiKey: string,
-  quality: Quality = DEFAULT_QUALITY,
-): Promise<WodDraft> {
-  const tier = QUALITY_TIERS[quality]
-  const client = new Anthropic({
-    apiKey,
-    // ブラウザから直接叩くための明示。SDKが anthropic-dangerous-direct-browser-access を付ける
-    dangerouslyAllowBrowser: true,
-    maxRetries: 2,
-  })
+export async function transcribeWod(file: File, ai: AiConfig, quality: Quality = DEFAULT_QUALITY): Promise<WodDraft> {
+  // OpenAI は detail: high で長辺2048pxまで見る。それ以上送っても縮小されるだけ
+  const maxEdge = ai.provider === 'openai' ? 2048 : QUALITY_TIERS[quality].maxEdge
+  const image = await prepareImage(file, maxEdge)
 
-  const image = await prepareImage(file, tier.maxEdge)
-
-  const res = await client.messages.create({
-    model: tier.model,
-    max_tokens: 16000,
-    system: SYSTEM,
-    output_config: {
-      format: { type: 'json_schema', schema: WOD_SCHEMA },
-      // Haiku 4.5 は effort 非対応。送るとエラーになるので段に持たせている
-      ...(tier.effort ? { effort: tier.effort } : {}),
-    },
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: image.mediaType, data: image.data },
-          },
-          { type: 'text', text: PROMPT },
-        ],
-      },
-    ],
-  })
-
-  if (res.stop_reason === 'refusal') {
-    throw new Error('この画像は読み取りを断られました。別の写真でお試しください。')
-  }
-  if (res.stop_reason === 'max_tokens') {
-    throw new Error('読み取り結果が長すぎて途中で切れました。ボードを分けて撮ってください。')
-  }
-
-  const block = res.content.find(b => b.type === 'text')
-  if (!block || block.type !== 'text') {
-    throw new Error('読み取り結果が空でした。もう一度お試しください。')
+  let text: string
+  try {
+    text = await structured(ai, quality, { system: SYSTEM, text: PROMPT, image, schema: WOD_SCHEMA, schemaName: 'wod' })
+  } catch (err) {
+    if (err instanceof AiStop) {
+      if (err.message === 'refusal') throw new Error('この画像は読み取りを断られました。別の写真でお試しください。')
+      if (err.message === 'max_tokens') throw new Error('読み取り結果が長すぎて途中で切れました。ボードを分けて撮ってください。')
+      throw new Error('読み取り結果が空でした。もう一度お試しください。')
+    }
+    throw err
   }
 
   let parsed: Parsed
   try {
-    parsed = JSON.parse(block.text) as Parsed
+    parsed = JSON.parse(text) as Parsed
   } catch {
     throw new Error('読み取り結果を解釈できませんでした。もう一度お試しください。')
   }
@@ -216,18 +375,8 @@ export async function transcribeWod(
     notes: parsed.notes ?? '',
     raw: (parsed.raw ?? '').trim(),
     confidence: parsed.confidence ?? 'low',
-    source: 'claude',
+    source: ai.provider === 'openai' ? 'openai' : 'claude',
   }
-}
-
-/** APIキーが生きているかの軽い確認。いちばん安いモデルで1往復するだけ */
-export async function checkApiKey(apiKey: string): Promise<void> {
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 })
-  await client.messages.create({
-    model: QUALITY_TIERS.eco.model,
-    max_tokens: 16,
-    messages: [{ role: 'user', content: 'ok とだけ返してください。' }],
-  })
 }
 
 /** 読み取り結果をメモ本文用のテキストに整形する */
@@ -335,11 +484,9 @@ export async function judgeAccessory(
     exercises: { name: string; sets: string; reps: string; intensity: string; aim: string; caution: string }[]
     topRules: string[]
   },
-  apiKey: string,
+  ai: AiConfig,
   quality: Quality = DEFAULT_QUALITY,
 ): Promise<Omit<AccessoryAdvice, 'forDate'>> {
-  const tier = QUALITY_TIERS[quality]
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 })
 
   const wodText = [
     wod.title && `WOD名: ${wod.title}`,
@@ -366,29 +513,20 @@ export async function judgeAccessory(
     .filter(Boolean)
     .join('\n')
 
-  const res = await client.messages.create({
-    model: tier.model,
-    max_tokens: 16000,
-    system: ADVICE_SYSTEM,
-    output_config: {
-      format: { type: 'json_schema', schema: ADVICE_SCHEMA },
-      ...(tier.effort ? { effort: tier.effort } : {}),
-    },
-    messages: [
-      {
-        role: 'user',
-        content: `【今朝のWOD】\n${wodText}\n\n【今夜の予定】\n${planText}\n\n今夜の補助トレをどうするか判定してください。`,
-      },
-    ],
-  })
-
-  if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens') {
-    throw new Error('補助トレの判定に失敗しました。')
+  let text: string
+  try {
+    text = await structured(ai, quality, {
+      system: ADVICE_SYSTEM,
+      text: `【今朝のWOD】\n${wodText}\n\n【今夜の予定】\n${planText}\n\n今夜の補助トレをどうするか判定してください。`,
+      schema: ADVICE_SCHEMA,
+      schemaName: 'advice',
+    })
+  } catch (err) {
+    if (err instanceof AiStop) throw new Error('補助トレの判定に失敗しました。')
+    throw err
   }
-  const block = res.content.find(b => b.type === 'text')
-  if (!block || block.type !== 'text') throw new Error('補助トレの判定が空でした。')
 
-  const parsed = JSON.parse(block.text) as Omit<AccessoryAdvice, 'forDate'>
+  const parsed = JSON.parse(text) as Omit<AccessoryAdvice, 'forDate'>
   return {
     verdict: parsed.verdict ?? 'keep',
     amLoad: parsed.amLoad ?? 'medium',
