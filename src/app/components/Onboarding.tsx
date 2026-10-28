@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { dowOf, formatMD, shiftDate, todayISO } from '../../plan/plan'
 import type { Env, Gear } from '../../workout/engine'
-import { ENV_LABEL, GEAR_LABEL, GOAL_LABEL, INJURY_LABEL, LEVEL_LABEL } from '../../workout/engine/labels'
+import { ENV_LABEL, GEAR_LABEL, GOAL_LABEL, GYM_STYLE_LABEL, INJURY_LABEL, LEVEL_LABEL } from '../../workout/engine/labels'
 import { BackIcon, ChevronIcon } from '../../components/Icons'
 import {
   ACTIVITY_LABEL,
@@ -31,7 +31,7 @@ interface Option {
   exclusive?: boolean
 }
 
-type ChoiceKey = 'goal' | 'sex' | 'level' | 'quiet' | 'minutes' | 'trainTime' | 'cardio' | 'activity' | 'meals' | 'weeks' | 'startDate'
+type ChoiceKey = 'goal' | 'sex' | 'level' | 'quiet' | 'gymStyle' | 'minutes' | 'trainTime' | 'cardio' | 'activity' | 'meals' | 'weeks' | 'startDate'
 type MultiKey = 'injuries' | 'places' | 'gear'
 
 type Kind =
@@ -196,6 +196,23 @@ const STEPS: Step[] = [
     row: { label: '場所', value: d => (d.places ?? []).map(e => ENV_LABEL[e]).join('・') },
   },
   {
+    id: 'gymStyle',
+    section: '環境',
+    title: () => 'ジムではどんな器具を使いますか?',
+    sub: () => 'メニューのセットの組み方が変わります。あとから変えられます',
+    when: d => !!d.places?.includes('gym'),
+    kind: {
+      type: 'choice',
+      key: 'gymStyle',
+      options: () => [
+        { value: 'hybrid', label: 'ハイブリッド (おすすめ)', desc: 'マシン・ダンベル・バーベルを組み合わせて、部位ごとにいちばん効く種目を選ぶ', emoji: '🔀' },
+        { value: 'dumbbell', label: 'ダンベル中心', desc: 'ダンベルと、ベンチ・懸垂バーでできる種目だけ。マシンは使わない', emoji: '💪' },
+        { value: 'machine', label: 'マシン中心', desc: 'マシン・ケーブルを優先。軌道が決まっていてフォームが安定しやすい', emoji: '⚙️' },
+      ],
+    },
+    row: { label: 'ジムの器具', value: d => GYM_STYLE_LABEL[d.gymStyle ?? 'hybrid'] },
+  },
+  {
     id: 'gear',
     section: '環境',
     title: () => '自宅・野外で使える道具は?',
@@ -320,10 +337,14 @@ const STEPS: Step[] = [
     kind: {
       type: 'choice',
       key: 'meals',
+      grid: true,
       options: () => [
-        { value: '3', label: '3回', desc: '朝・昼・夜', emoji: '🍚' },
-        { value: '4', label: '4回', desc: '3食 + 間食1回', emoji: '🍙' },
-        { value: '5', label: '5回', desc: '3食 + 間食2回。増量向き', emoji: '🥤' },
+        { value: '1', label: '1回', desc: '1日1食' },
+        { value: '2', label: '2回', desc: '朝を抜くなど' },
+        { value: '3', label: '3回', desc: '朝・昼・夜' },
+        { value: '4', label: '4回', desc: '3食 + 間食1回' },
+        { value: '5', label: '5回', desc: '3食 + 間食2回' },
+        { value: '6', label: '6回', desc: '3食 + 間食3回。増量向き' },
       ],
     },
     row: { label: '食事の回数', value: d => `${d.meals}回` },
@@ -374,6 +395,7 @@ const SAY: Record<string, (d: Draft) => [Mood, string]> = {
   target: () => ['wink', 'ムリなく、でも確実にいこう'],
   injuries: () => ['think', '痛いところは、やさしい種目に入れ替えるね'],
   places: () => ['happy', 'どこでもいっしょにがんばれるよ'],
+  gymStyle: () => ['think', 'ダンベルだけでも、しっかり鍛えられるよ'],
   gear: () => ['smile', 'なにもなくても大丈夫！'],
   quiet: () => ['wink', 'ご近所さんにもやさしくね'],
   days: () => ['smile', 'お休みの日も、大事なトレーニングだよ'],
@@ -435,6 +457,7 @@ function toProfile(d: Draft, initial?: Profile): Profile {
     places: d.places!,
     gear: d.places!.some(e => e === 'home' || e === 'outdoor') ? (d.gear ?? []) : [],
     quiet: d.places!.includes('home') ? !!d.quiet : false,
+    gymStyle: d.places!.includes('gym') ? (d.gymStyle ?? 'hybrid') : undefined,
     days: [...d.days!].sort(),
     minutes: d.minutes!,
     trainTime: d.trainTime!,

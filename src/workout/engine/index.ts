@@ -5,7 +5,7 @@ import { GYM_EXERCISES } from './exercises'
 import { gymAlternative, buildGym } from './gym'
 import { ENV_LABEL, GOAL_LABEL, GOAL_SHORT, MUSCLES } from './labels'
 import { makeRng } from './rng'
-import type { Answers, Condition, Env, Gear, Goal, HistoryEntry, Injury, Level, Muscle, Rating, Scale, Workout } from './types'
+import type { Answers, Condition, Env, Gear, Goal, GymStyle, HistoryEntry, Injury, Level, Muscle, Rating, Scale, Workout } from './types'
 import { buildCooldown, buildWarmup } from './warmup'
 
 export * from './types'
@@ -120,6 +120,8 @@ const INJ: Injury[] = ['lowback', 'knee', 'shoulder', 'wrist']
 const SCALES: Scale[] = ['men', 'women']
 const RATINGS: Rating[] = ['easy', 'good', 'hard']
 const MUSCLE_CODE: Record<Muscle, string> = { chest: 'c', back: 'b', shoulders: 's', arms: 'a', core: 'o', glutes: 'g', legs: 'l' }
+/** ジムの器具の好み (ハイブリッドは何も付けない。道具の小文字と重ならないよう大文字) */
+const STYLE_CODE: Record<Exclude<GymStyle, 'hybrid'>, string> = { dumbbell: 'D', machine: 'M' }
 
 /** 種目IDを3文字にする (種目を追加・並べ替えても古いURLが壊れないよう、並び順ではなくハッシュで) */
 function idCode(id: string): string {
@@ -166,8 +168,8 @@ export function encodeShare(a: Answers, seed: number, gen: GenContext = EMPTY_CO
     LEVELS.indexOf(a.level),
     CONDS.indexOf(a.condition),
     a.injuries.map(i => INJ.indexOf(i)).join('') || 'x',
-    // 重量基準の数字の後ろに、道具 (英字) と「静かに」(q) を続ける
-    `${SCALES.indexOf(a.scale)}${a.gear.map(g => GEAR_CODE[g]).join('')}${a.quiet ? 'q' : ''}`,
+    // 重量基準の数字の後ろに、道具 (英字)・「静かに」(q)・ジムの器具の好み (D / M) を続ける
+    `${SCALES.indexOf(a.scale)}${a.gear.map(g => GEAR_CODE[g]).join('')}${a.quiet ? 'q' : ''}${a.style && a.style !== 'hybrid' ? STYLE_CODE[a.style] : ''}`,
     seed.toString(36),
   ].join('.')
   const ctx = encodeContext(gen)
@@ -187,12 +189,13 @@ export function decodeShare(code: string): { answers: Answers; seed: number; con
   const scale = SCALES[Number(p[7][0])]
   const gear = [...p[7].slice(1)].map(c => (Object.keys(GEAR_CODE) as Gear[]).find(g => GEAR_CODE[g] === c)).filter((g): g is Gear => !!g)
   const quiet = p[7].includes('q')
+  const style: GymStyle = p[7].includes('D') ? 'dumbbell' : p[7].includes('M') ? 'machine' : 'hybrid'
   const seed = parseInt(p[8], 36)
   const context = p[9] ? decodeContext(p[9]) : EMPTY_CONTEXT
   if (!env || !goal || !level || !condition || !scale || !context || !Number.isFinite(seed) || !(minutes >= 15 && minutes <= 120)) {
     return undefined
   }
-  return { answers: { env, goal, focus, minutes, level, condition, injuries, scale, gear, quiet }, seed, context }
+  return { answers: { env, goal, focus, minutes, level, condition, injuries, scale, gear, quiet, style }, seed, context }
 }
 
 /** いま表示しているメニューの共有コード */

@@ -104,10 +104,12 @@ export default function App() {
       key: env,
       label: `${PLACE_ICON[env]} ${ENV_LABEL[env]}`,
       gearOptions: env === 'home' ? HOME_GEAR : env === 'outdoor' ? OUTDOOR_GEAR : undefined,
-      answers: (muscles, minutes, gear) => ({
+      styleOptions: env === 'gym',
+      answers: (muscles, minutes, gear, style) => ({
         ...answersFor(profile, { type: 'strength', label: '', focus: muscles, fullBody: false, env }, 'normal'),
         minutes,
         gear,
+        style: env === 'gym' ? style : undefined,
       }),
     }))
   }, [profile])
@@ -279,6 +281,8 @@ export default function App() {
             places={partsPlaces}
             defaultPlace={profile!.places[0]}
             defaultGear={profile!.gear}
+            defaultStyle={profile!.gymStyle ?? 'hybrid'}
+            beginner={profile!.level === 'beginner'}
             kyotoreUrl="../workout/"
             onSaved={async memoId => {
               await refresh()

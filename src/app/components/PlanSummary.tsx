@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { formatMD, shiftDate } from '../../plan/plan'
-import { GOAL_LABEL, ENV_LABEL, LEVEL_LABEL } from '../../workout/engine/labels'
+import { GOAL_LABEL, ENV_LABEL, GYM_STYLE_LABEL, LEVEL_LABEL } from '../../workout/engine/labels'
 import { SectionBlock, SubFold } from '../../components/TodayPage'
 import { BackIcon, EditIcon } from '../../components/Icons'
 import { DOW_LABEL, WEEK_ORDER, daysText, weightDirection } from '../profile'
@@ -220,6 +220,8 @@ export default function PlanSummary({ plan, mode, onStart, onBack, onEdit, onRes
                 ['からだ', `${p.age}歳 / ${p.height}cm / ${p.weight}kg`],
                 ['経験', LEVEL_LABEL[p.level]],
                 ['場所', p.places.map(e => ENV_LABEL[e]).join('・')],
+                ...(p.places.includes('gym') ? [['ジムの器具', GYM_STYLE_LABEL[p.gymStyle ?? 'hybrid']]] : []),
+                ['食事', `1日${p.meals}回`],
                 ['曜日', `週${p.days.length}日 (${daysText(p.days)})`],
               ].map(([k, v]) => (
                 <div key={k}>

@@ -2,7 +2,7 @@
 // プランはこのプロフィールから毎回同じ結果になるよう計算するので、プラン自体は保存しない。
 
 import { getSetting, putSetting } from '../db'
-import type { Env, Gear, Goal, Injury, Level } from '../workout/engine'
+import type { Env, Gear, Goal, GymStyle, Injury, Level } from '../workout/engine'
 import type { Theme } from './theme'
 
 export type Sex = 'male' | 'female' | 'other'
@@ -45,7 +45,7 @@ export interface Profile {
   injuries: Injury[]
   activity: Activity
   /** 1日の食事回数 (間食込み) */
-  meals: 3 | 4 | 5
+  meals: MealCount
   /** プランの長さ (週) */
   weeks: 4 | 8 | 12
   /** YYYY-MM-DD */
@@ -53,7 +53,11 @@ export interface Profile {
   createdAt: number
   /** アプリの色 (なければ黒) */
   theme?: Theme
+  /** 施設型ジムでの器具の好み (なければハイブリッド) */
+  gymStyle?: GymStyle
 }
+
+export type MealCount = 1 | 2 | 3 | 4 | 5 | 6
 
 export const PROFILE_SETTING = 'profile'
 

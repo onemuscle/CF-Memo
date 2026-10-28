@@ -24,6 +24,9 @@ export type Injury = 'lowback' | 'knee' | 'shoulder' | 'wrist'
 /** CrossFit の重量表記 (Rx の男女基準) */
 export type Scale = 'men' | 'women'
 
+/** 施設型ジムで使う器具の好み。hybrid = 何でも使う / dumbbell = ダンベルと自重だけ / machine = マシン・ケーブル中心 */
+export type GymStyle = 'hybrid' | 'dumbbell' | 'machine'
+
 export interface Answers {
   env: Env
   goal: Goal
@@ -38,6 +41,8 @@ export interface Answers {
   gear: Gear[]
   /** ジャンプ・足音を控えたい (集合住宅の自宅など) */
   quiet: boolean
+  /** 施設型ジムでの器具の好み (省略時は hybrid) */
+  style?: GymStyle
 }
 
 /** 前回の「きつさ」評価。次回のボリューム調整に使う */

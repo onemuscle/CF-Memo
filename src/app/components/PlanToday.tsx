@@ -20,6 +20,7 @@ import { dayWorkout, type DayCondition, type DayWorkout } from '../plan/workout'
 import { SWAP_TABLE, dayMeals, targetsFor, weightAt, weeklyRate } from '../plan/nutrition'
 import { CONDITION_HELP, PROGRESSION, REST_TIPS, mealGuide, rulesFor } from '../plan/guide'
 import { MascotSays, type Mood } from './Mascot'
+import { BLOCK_HINT, BeginnerGuide, ItemHowTo } from '../../components/HowTo'
 
 interface Props {
   plan: Plan
@@ -332,6 +333,7 @@ function DayBody({
           onReroll={() => setPref({ ...pref, variant: pref.variant + 1 })}
           rerolled={pref.variant > 0}
           onResetVariant={() => setPref({ ...pref, variant: 0 })}
+          beginner={p.level === 'beginner'}
         />
       )}
 
@@ -441,7 +443,9 @@ function WorkoutCard({
   rerolled,
   onReroll,
   onResetVariant,
+  beginner,
 }: {
+  beginner: boolean
   color: string
   tag: string
   workout: DayWorkout
@@ -466,6 +470,15 @@ function WorkoutCard({
         </p>
       )}
 
+      {beginner && (
+        <>
+          <MascotSays mood="smile" size={52} className="small">
+            はじめは軽めでOK！各種目の「やり方」に手順と動画があるよ
+          </MascotSays>
+          <BeginnerGuide />
+        </>
+      )}
+
       {workout.blocks.map(b => (
         <section key={b.key} className="pw-block">
           <div className="pw-block-head">
@@ -473,6 +486,7 @@ function WorkoutCard({
             <span className="pw-block-title">{b.title}</span>
             <span className="pw-block-min">{b.minutes}分</span>
           </div>
+          {beginner && BLOCK_HINT[b.kind] && <p className="pw-hint">💡 {BLOCK_HINT[b.kind]}</p>}
           {b.format && <p className="pw-format">{b.format}</p>}
           <ul className="pw-items">
             {b.items.map((it, i) => (
@@ -486,6 +500,7 @@ function WorkoutCard({
                   <span className="pw-rx">{it.prescription}</span>
                 </div>
                 {it.detail && <p className="pw-item-detail">{it.detail}</p>}
+                <ItemHowTo item={it} defaultOpen={beginner} />
               </li>
             ))}
           </ul>
@@ -647,6 +662,7 @@ function MealCard({ plan, day }: { plan: Plan; day: DayPlan }) {
       </ol>
 
       {meals.preTip && <p className="card-note">💡 {meals.preTip}</p>}
+      {meals.note && <p className="card-note">🍽️ {meals.note}</p>}
 
       <SubFold title="食材の置き換え早見表">
         {SWAP_TABLE.map(s => (

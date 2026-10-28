@@ -695,6 +695,16 @@ export const GYM_BY_ID = new Map(GYM_EXERCISES.map(e => [e.id, e]))
 const NO_AWAY_EQUIP = new Set<Equip>(['barbell', 'machine', 'cable'])
 
 /** この回答の場所・道具で実施できる種目か */
+/** ダンベル中心のときに使えるジムの設備 (ベンチ・懸垂バーはどのジムにもある前提) */
+const DUMBBELL_GYM: Pick<Answers, 'env' | 'gear' | 'quiet'> = { env: 'home', gear: ['dumbbell', 'kettlebell', 'bench', 'bar'], quiet: false }
+
+/** 施設型ジムの器具の好みに合う種目か。ダンベル中心ならダンベル・ケトルベルと、ベンチ・懸垂バーでできる自重種目だけ */
+export function fitsStyle(e: GymExercise, a: Pick<Answers, 'env' | 'style'>): boolean {
+  if (a.env !== 'gym' || a.style !== 'dumbbell') return true
+  if (e.equip === 'dumbbell' || e.equip === 'kettlebell') return true
+  return e.equip === 'bodyweight' && availableFor(e, DUMBBELL_GYM)
+}
+
 export function availableFor(e: GymExercise, a: Pick<Answers, 'env' | 'gear' | 'quiet'>): boolean {
   if (a.env === 'gym') return !e.awayOnly
   if (a.env === 'box') return !!e.box

@@ -3,7 +3,7 @@
 // 使える時間に収まる種目数を決める (収まらなければスーパーセットにする)。
 
 import { BOOKEND_MIN, LEVEL_NUM, agoText, clamp, roundRest, secText, type GenContext } from './common'
-import { GYM_BY_ID, GYM_EXERCISES, SLOT_ORDER, availableFor, type GymExercise, type Kind, type Slot } from './exercises'
+import { GYM_BY_ID, GYM_EXERCISES, SLOT_ORDER, availableFor, fitsStyle, type GymExercise, type Kind, type Slot } from './exercises'
 import { GEAR_LABEL, GOAL_LABEL, isAway, musclesText } from './labels'
 import { shuffle, weighted, type Rng } from './rng'
 import { easyCardio, intervals, steady } from './cardio'
@@ -165,8 +165,15 @@ function pickExercise(slot: Slot, ctx: Ctx): GymExercise | undefined {
   const { a, rng, recent, used } = ctx
   const lvl = LEVEL_NUM[a.level]
   const candidates = GYM_EXERCISES.filter(
-    e => e.slot === slot && e.level <= lvl && !used.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)) && availableFor(e, a),
+    e =>
+      e.slot === slot &&
+      e.level <= lvl &&
+      !used.has(e.id) &&
+      !e.avoid.some(i => a.injuries.includes(i)) &&
+      availableFor(e, a) &&
+      fitsStyle(e, a),
   )
+  const machineStyle = a.env === 'gym' && a.style === 'machine'
   const away = isAway(a.env)
   return weighted(rng, candidates, e => {
     let s = 1
@@ -181,8 +188,12 @@ function pickExercise(slot: Slot, ctx: Ctx): GymExercise | undefined {
     }
     if (a.level === 'beginner') s *= e.equip === 'machine' || e.equip === 'cable' ? 1.6 : e.equip === 'barbell' ? 0.6 : 1
     if (a.level === 'advanced' && (e.equip === 'barbell' || e.equip === 'dumbbell')) s *= 1.4
-    // 筋力・パワーが目的ならメイン種目はバーベルを強く優先する
-    if ((a.goal === 'strength' || a.goal === 'athletic') && e.equip === 'barbell' && e.kind === 'compound') s *= a.level === 'beginner' ? 3 : 10
+    // 筋力・パワーが目的ならメイン種目はバーベルを強く優先する (マシン中心を選んだ人は除く)
+    if (!machineStyle && (a.goal === 'strength' || a.goal === 'athletic') && e.equip === 'barbell' && e.kind === 'compound') s *= a.level === 'beginner' ? 3 : 10
+    // マシン中心: マシン・ケーブルを優先し、フリーウェイトは他に選べないときだけ
+    if (machineStyle) s *= e.equip === 'machine' || e.equip === 'cable' ? 20 : e.equip === 'barbell' ? 0.2 : e.equip === 'bodyweight' ? 0.5 : 0.6
+    // ダンベル中心: 自重よりダンベルで負荷をかけられる種目を優先する
+    if (a.env === 'gym' && a.style === 'dumbbell' && (e.equip === 'dumbbell' || e.equip === 'kettlebell')) s *= 2.5
     // サーキットは移動が多いので、バーベルや高難度の自重種目は避ける
     if (a.goal === 'stamina' && (e.equip === 'barbell' || e.id === 'pull-up' || e.id === 'dips')) s *= 0.2
     if (a.goal === 'health' && e.equip !== 'barbell') s *= 1.3
@@ -419,6 +430,12 @@ export function buildGym(a: Answers, rng: Rng, gen: GenContext) {
         (used.some(p => p.ex.equip === 'bodyweight') ? '自重種目は重さの代わりに「回数」と「ゆっくり下ろすテンポ」で負荷をかけます。' : ''),
     )
   }
+  if (a.env === 'gym' && a.style === 'dumbbell') {
+    why.push('ダンベル中心で組んでいます。マシンやバーベルは使わず、ダンベルと、ベンチ・懸垂バーでできる種目だけです。左右を別々に動かすので、左右差も整えられます。')
+  }
+  if (a.env === 'gym' && a.style === 'machine') {
+    why.push('マシン中心で組んでいます。軌道が決まっているのでフォームが安定しやすく、狙った筋肉に集中できます。シートとパッドの位置を最初に体に合わせましょう。')
+  }
   if (groups.some(g => g.length > 1) && a.goal !== 'lean' && a.goal !== 'stamina') {
     why.push(`${a.minutes}分に収めるため、部位が重ならない種目同士をスーパーセットにして休憩時間を有効活用しています。`)
   }
@@ -587,7 +604,8 @@ export function gymAlternative(id: string, a: Answers, exclude: Set<string>, rng
   const cur = GYM_BY_ID.get(id)
   if (!cur) return undefined
   const lvl = LEVEL_NUM[a.level]
-  const ok = (e: GymExercise) => e.level <= lvl && !exclude.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)) && availableFor(e, a)
+  const ok = (e: GymExercise) =>
+    e.level <= lvl && !exclude.has(e.id) && !e.avoid.some(i => a.injuries.includes(i)) && availableFor(e, a) && fitsStyle(e, a)
   const same = GYM_EXERCISES.filter(e => e.slot === cur.slot && ok(e))
   const fallback = GYM_EXERCISES.filter(e => e.muscle === cur.muscle && e.kind === cur.kind && ok(e))
   const pool = same.length ? same : fallback

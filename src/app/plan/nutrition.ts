@@ -139,6 +139,8 @@ export interface DayMeals {
   trainAt?: string
   /** トレ前に食事が入らない日の補食の案内 */
   preTip?: string
+  /** 食事回数が少ないときの補足 */
+  note?: string
 }
 
 const TRAIN_AT: Record<TrainTime, string> = {
@@ -152,6 +154,32 @@ type SlotDef = { time: string; name: string; kind: 'meal' | 'snack' }
 
 /** 食事回数 × 時間帯ごとの食事の時刻 */
 function slotDefs(meals: Profile['meals'], t: TrainTime): SlotDef[] {
+  // 1食・2食は、トレーニングのあとに食事が来るように置く
+  if (meals === 1) {
+    const time: Record<TrainTime, string> = { morning: '08:00', noon: '13:00', evening: '19:30', night: '21:45' }
+    return [{ time: time[t], name: '食事', kind: 'meal' }]
+  }
+  if (meals === 2) {
+    const two: Record<TrainTime, SlotDef[]> = {
+      morning: [
+        { time: '08:00', name: '朝食', kind: 'meal' },
+        { time: '19:00', name: '夕食', kind: 'meal' },
+      ],
+      noon: [
+        { time: '13:00', name: '昼食', kind: 'meal' },
+        { time: '19:30', name: '夕食', kind: 'meal' },
+      ],
+      evening: [
+        { time: '12:30', name: '昼食', kind: 'meal' },
+        { time: '19:30', name: '夕食', kind: 'meal' },
+      ],
+      night: [
+        { time: '12:30', name: '昼食', kind: 'meal' },
+        { time: '21:45', name: '夕食', kind: 'meal' },
+      ],
+    }
+    return two[t]
+  }
   const main: Record<TrainTime, SlotDef[]> = {
     morning: [
       { time: '08:00', name: '朝食', kind: 'meal' },
@@ -174,11 +202,12 @@ function slotDefs(meals: Profile['meals'], t: TrainTime): SlotDef[] {
       { time: '18:30', name: '夕食', kind: 'meal' },
     ],
   }
+  // 4食目以降は間食。トレーニングの前後 → それ以外の順に足す
   const snacks: Record<TrainTime, string[]> = {
-    morning: ['15:30', '10:30'],
-    noon: ['10:30', '16:00'],
-    evening: ['16:30', '10:00'],
-    night: ['22:00', '16:00'],
+    morning: ['15:30', '10:30', '21:00'],
+    noon: ['10:30', '16:00', '21:30'],
+    evening: ['16:30', '10:00', '21:30'],
+    night: ['22:00', '16:00', '10:00'],
   }
   const list = [...main[t]]
   snacks[t].slice(0, meals - 3).forEach(time => list.push({ time, name: '間食', kind: 'snack' }))
@@ -234,6 +263,11 @@ export function dayMeals(p: Profile, s: Session, t: Targets): DayMeals {
     }
   })
 
+  const note =
+    p.meals <= 2
+      ? `1日${p.meals}食だと、必要な量を${p.meals === 1 ? '1回' : '2回'}で食べきるのは難しいことが多いです。牛乳・ヨーグルト・果物・プロテインなどの手軽な間食で、足りない分を補いましょう。`
+      : undefined
+
   let preTip: string | undefined
   if (training && !pre) {
     preTip =
@@ -241,7 +275,7 @@ export function dayMeals(p: Profile, s: Session, t: Targets): DayMeals {
         ? '朝トレは空腹のままより、バナナ1本やゼリー飲料で糖質を少し入れてから始めると動けます'
         : 'トレ前の食事が空きすぎる日は、1時間前におにぎり1個かバナナ1本を足すと最後までバテにくい'
   }
-  return { slots, trainAt, preTip }
+  return { slots, trainAt, preTip, note }
 }
 
 /** 食材の目安量に置き換える */
@@ -255,17 +289,31 @@ function exampleFor(d: SlotDef, role: MealSlot['role'], p: number, c: number): s
     if (c >= 15) parts.push(c >= 35 ? `おにぎり ${Math.round(c / 40) || 1}個` : 'バナナ 1本')
     return parts.join(' / ')
   }
+  // 1回で食べきれる量を超えた分は、タンパク質はプロテイン、炭水化物は食パンで補う
+  let extraProtein = 0
   if (d.name === '朝食') {
-    // 卵は3個まで。残りはヨーグルトで
+    // 卵は3個まで。残りはヨーグルト (200gまで)
     const eggs = Math.max(1, Math.min(3, Math.round(main / 6.2)))
     parts.push(`卵 ${eggs}個`)
     const rest = main - eggs * 6.2
-    if (rest >= 5) parts.push(`ギリシャヨーグルト ${round10((rest / 10) * 100)}g`)
-    if (c >= 20) parts.push(c >= 70 ? `ご飯 ${round10(c / 0.37)}g` : `オートミール ${round10(c / 0.6)}g`)
+    const yogurt = Math.min(rest, 20)
+    if (yogurt >= 5) parts.push(`ギリシャヨーグルト ${round10((yogurt / 10) * 100)}g`)
+    extraProtein = rest - yogurt
   } else {
     const protein = d.name === '昼食' ? { name: '鶏むね肉 (皮なし)', per: 23 } : { name: '魚か赤身肉', per: 21 }
-    parts.push(`${protein.name} ${round10((main / protein.per) * 100)}g`)
-    if (c >= 20) parts.push(`ご飯 ${round10(c / 0.37)}g`)
+    const food = Math.min(main, 45)
+    parts.push(`${protein.name} ${round10((food / protein.per) * 100)}g`)
+    extraProtein = main - food
+  }
+  if (extraProtein >= 10) parts.push(`プロテイン ${Math.max(1, Math.round(extraProtein / 20))}杯`)
+  if (c >= 20) {
+    const rice = Math.min(c, 110)
+    parts.push(d.name === '朝食' && c < 70 ? `オートミール ${round10(c / 0.6)}g` : `ご飯 ${round10(rice / 0.37)}g`)
+    const breadCarbs = Math.min(c - rice, 54)
+    const bread = Math.round(breadCarbs / 27)
+    if (bread >= 1) parts.push(`食パン6枚切り ${bread}枚`)
+    // それでも足りない分は、1回では食べきれないので間食・飲み物で
+    if (c - rice - breadCarbs >= 30) parts.push('足りない分は牛乳・果物・おにぎりなどの間食で')
   }
   parts.push('野菜・海藻')
   return parts.join(' / ')

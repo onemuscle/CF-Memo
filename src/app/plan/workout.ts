@@ -50,6 +50,7 @@ export function answersFor(p: Profile, s: Session, condition: Condition): Answer
     scale: p.sex === 'female' ? 'women' : 'men',
     gear: s.env === 'home' || s.env === 'outdoor' ? p.gear : [],
     quiet: s.env === 'home' && p.quiet,
+    style: s.env === 'gym' ? (p.gymStyle ?? 'hybrid') : undefined,
   }
 }
 
