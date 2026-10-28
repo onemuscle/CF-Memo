@@ -28,6 +28,9 @@ const EXTRAS = [
   { injuries: [], gear: [], quiet: false, trainTime: 'evening', meals: 3, activity: 'low', weeks: 12 },
   { injuries: ['knee', 'lowback'], gear: ['dumbbell', 'bench', 'stairs'], quiet: true, trainTime: 'morning', meals: 5, activity: 'high', weeks: 8 },
   { injuries: ['shoulder', 'wrist'], gear: ['band', 'bar'], quiet: false, trainTime: 'night', meals: 4, activity: 'mid', weeks: 4 },
+  { injuries: [], gear: ['dumbbell'], quiet: false, trainTime: 'noon', meals: 1, activity: 'low', weeks: 4, gymStyle: 'dumbbell' },
+  { injuries: ['knee'], gear: [], quiet: true, trainTime: 'night', meals: 2, activity: 'mid', weeks: 8, gymStyle: 'machine' },
+  { injuries: [], gear: ['kettlebell'], quiet: false, trainTime: 'morning', meals: 6, activity: 'high', weeks: 4, gymStyle: 'hybrid' },
 ]
 
 const BAD_TEXT = /NaN|undefined|null|\[object/

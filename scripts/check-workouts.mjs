@@ -7,6 +7,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
 const engine = await server.ssrLoadModule('/src/workout/engine/index.ts')
 const { generateWorkout, generateForToday, decodeShare, shareCode, exerciseIds, workedMuscles } = engine
+const { GYM_BY_ID } = await server.ssrLoadModule('/src/workout/engine/exercises.ts')
 
 const ENVS = ['gym', 'box', 'home', 'outdoor']
 // 自宅・野外は道具の組み合わせごとに検証する
@@ -16,6 +17,8 @@ const GEAR = {
   home: [[[], false], [[], true], [['dumbbell'], false], [['band', 'bench'], true], [['dumbbell', 'band', 'kettlebell', 'bench', 'bar'], false]],
   outdoor: [[[], false], [['bar', 'bench', 'stairs'], false], [['band'], false]],
 }
+// 施設型ジムは器具の好み (ハイブリッド / ダンベル中心 / マシン中心) ごとに検証する
+const STYLES = { gym: ['hybrid', 'dumbbell', 'machine'], box: [undefined], home: [undefined], outdoor: [undefined] }
 const GOALS = ['lean', 'muscle', 'strength', 'stamina', 'athletic', 'health']
 const LEVELS = ['beginner', 'intermediate', 'advanced']
 const CONDS = ['great', 'normal', 'tired']
@@ -39,8 +42,9 @@ for (const env of ENVS)
         for (const minutes of MINUTES)
           for (const focus of FOCUS)
             for (const injuries of INJURIES)
-              for (const [gear, quiet] of GEAR[env]) {
-              const a = { env, goal, focus, minutes, level, condition, injuries, scale: seed % 2 ? 'men' : 'women', gear, quiet }
+              for (const [gear, quiet] of GEAR[env])
+              for (const style of STYLES[env]) {
+              const a = { env, goal, focus, minutes, level, condition, injuries, scale: seed % 2 ? 'men' : 'women', gear, quiet, ...(style ? { style } : {}) }
               const label = JSON.stringify(a)
               seed++
               count++
@@ -56,6 +60,10 @@ for (const env of ENVS)
                   const away = w.blocks.flatMap(b => b.items).find(i => /マシン|ケーブル|スミス|バーベル|レッグプレス|ペック|ラットプル(?!ダウン \(|ダウン$)/.test(i.name) && !/チューブ|タオル/.test(i.name))
                   if (away) failures.push(`${env}でジム専用の種目 (${away.name}) ${label}`)
                   if (quiet && /ジャンプ|バーピー|ダッシュ|ジャンピング/.test(JSON.stringify(w.blocks).replaceAll('ジャンプなし', ''))) failures.push(`静かにしたいのにジャンプ系 ${label}`)
+                }
+                if (style === 'dumbbell') {
+                  const other = w.blocks.flatMap(b => b.items).find(i => ['barbell', 'machine', 'cable'].includes(GYM_BY_ID.get(i.id)?.equip))
+                  if (other) failures.push(`ダンベル中心なのに ${other.name} ${label}`)
                 }
                 for (const b of w.blocks) {
                   if (!b.items.length) failures.push(`空のブロック ${b.key} ${label}`)

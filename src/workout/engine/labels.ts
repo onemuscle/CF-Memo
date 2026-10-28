@@ -1,10 +1,16 @@
-import type { Condition, Env, Gear, Goal, Injury, Level, Muscle, Rating } from './types'
+import type { Condition, Env, Gear, Goal, GymStyle, Injury, Level, Muscle, Rating } from './types'
 
 export const ENV_LABEL: Record<Env, string> = {
   gym: '施設型ジム',
   box: 'CrossFit',
   home: '自宅',
   outdoor: '野外',
+}
+
+export const GYM_STYLE_LABEL: Record<GymStyle, string> = {
+  hybrid: 'ハイブリッド',
+  dumbbell: 'ダンベル中心',
+  machine: 'マシン中心',
 }
 
 export const GEAR_LABEL: Record<Gear, string> = {

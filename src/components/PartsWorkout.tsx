@@ -4,24 +4,28 @@ import {
   shareCode,
   type Answers,
   type Gear,
+  type GymStyle,
   type Muscle,
   type Workout,
 } from '../workout/engine'
-import { GEAR_LABEL, MUSCLE_LABEL } from '../workout/engine/labels'
+import { GEAR_LABEL, GYM_STYLE_LABEL, MUSCLE_LABEL } from '../workout/engine/labels'
 import { loadHistory } from '../workout/storage'
 import { putMemo } from '../db'
 import { newId, type Memo } from '../types'
 import { GYM_LABEL } from '../plan/plan'
 import type { GymLocation } from '../plan/planData'
 import { SubFold, useGymLocation } from './TodayPage'
+import { BLOCK_HINT, BeginnerGuide, ItemHowTo } from './HowTo'
 
 /** 選べる場所と、その場所でのエンジンへの回答 */
 export interface PartsPlace {
   key: string
   label: string
-  answers: (muscles: Muscle[], minutes: number, gear: Gear[]) => Answers
+  answers: (muscles: Muscle[], minutes: number, gear: Gear[], style: GymStyle) => Answers
   /** 使える道具を選ばせる (自宅・野外) */
   gearOptions?: Gear[]
+  /** 器具の好み (ハイブリッド / ダンベル中心 / マシン中心) を選ばせる (施設型ジム) */
+  styleOptions?: boolean
 }
 
 interface Props {
@@ -33,6 +37,9 @@ interface Props {
   /** 最初に選んでおく場所と道具 */
   defaultPlace?: string
   defaultGear?: Gear[]
+  defaultStyle?: GymStyle
+  /** 初心者: やり方を最初から開き、メニューの見かたを添える */
+  beginner?: boolean
 }
 
 const MUSCLES: Muscle[] = ['chest', 'back', 'shoulders', 'arms', 'core', 'glutes', 'legs']
@@ -78,11 +85,12 @@ function memoBody(w: Workout, place: PartsPlace): string {
   return lines.join('\n').trim()
 }
 
-export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/', defaultPlace, defaultGear = [] }: Props) {
+export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/', defaultPlace, defaultGear = [], defaultStyle = 'hybrid', beginner = false }: Props) {
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [gymLocation, setGymLocation] = useGymLocation()
   const [customKey, setCustomKey] = useState(defaultPlace ?? places?.[0]?.key)
   const [gear, setGear] = useState<Gear[]>(defaultGear)
+  const [style, setStyle] = useState<GymStyle>(defaultStyle)
   const list = places ?? CF_PLACES
   const placeKey = places ? customKey : gymLocation
   const place = list.find(pl => pl.key === placeKey) ?? list[0]
@@ -98,7 +106,7 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
 
   function generate() {
     const seed = (Date.now() % 2147483647) >>> 0
-    setWorkout(generateForToday(place.answers(muscles, minutes, place.gearOptions ? gear.filter(g => place.gearOptions!.includes(g)) : []), seed, loadHistory()))
+    setWorkout(generateForToday(place.answers(muscles, minutes, place.gearOptions ? gear.filter(g => place.gearOptions!.includes(g)) : [], style), seed, loadHistory()))
   }
 
   async function handleSave() {
@@ -165,6 +173,26 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
         </>
       )}
 
+      {place.styleOptions && (
+        <>
+          <label className="field-label">器具の好み</label>
+          <div className="chip-row wrap">
+            {(['hybrid', 'dumbbell', 'machine'] as const).map(st => (
+              <button
+                key={st}
+                className={`chip ${style === st ? 'chip-on' : ''}`}
+                onClick={() => {
+                  setStyle(st)
+                  setWorkout(null)
+                }}
+              >
+                {GYM_STYLE_LABEL[st]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {place.gearOptions && (
         <>
           <label className="field-label">使える道具 (なしでもOK)</label>
@@ -216,6 +244,8 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
             <span className="pw-total">約{workout.totalMinutes}分</span>
           </div>
 
+          {beginner && <BeginnerGuide />}
+
           {workout.blocks.map(b => (
             <section key={b.key} className="pw-block">
               <div className="pw-block-head">
@@ -223,6 +253,7 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
                 <span className="pw-block-title">{b.title}</span>
                 <span className="pw-block-min">{b.minutes}分</span>
               </div>
+              {beginner && BLOCK_HINT[b.kind] && <p className="pw-hint">💡 {BLOCK_HINT[b.kind]}</p>}
               {b.format && <p className="pw-format">{b.format}</p>}
               <ul className="pw-items">
                 {b.items.map((it, i) => (
@@ -236,6 +267,7 @@ export default function PartsWorkout({ onSaved, places, kyotoreUrl = './workout/
                       <span className="pw-rx">{it.prescription}</span>
                     </div>
                     {it.detail && <p className="pw-item-detail">{it.detail}</p>}
+                    <ItemHowTo item={it} defaultOpen={beginner} />
                   </li>
                 ))}
               </ul>
