@@ -2,7 +2,7 @@
 // 秘密情報 (API_TOKEN など) はここに書かない。`wrangler secret put` で登録する。
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cf-memo",
+  "name": "cfm",
   "main": "worker/src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
