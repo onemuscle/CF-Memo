@@ -1,0 +1,3 @@
+#!/bin/sh
+# 秘密情報・健康データの誤コミット防止。有効化: git config core.hooksPath .githooks
+node scripts/check-secrets.mjs --staged

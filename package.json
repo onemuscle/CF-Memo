@@ -9,19 +9,33 @@
     "prebuild": "node scripts/copy-tesseract.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "check:workout": "node scripts/check-workouts.mjs"
+    "check:workout": "node scripts/check-workouts.mjs",
+    "dev:platform": "vite -c vite.platform.config.ts",
+    "dev:api": "wrangler d1 migrations apply cf-memo --local && wrangler dev --port 8787",
+    "build:platform": "vite build -c vite.platform.config.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.platform.json && tsc -p tsconfig.worker.json",
+    "test": "node --test tests/*.test.ts",
+    "test:persistence": "node scripts/test-persistence.ts",
+    "migrations:lock": "node scripts/lock-migrations.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "cfm": "node scripts/cfm.ts",
+    "seed:dev": "node scripts/seed-dev.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
+    "hono": "^4.13.19",
+    "jose": "^6.2.17",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261117.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "wrangler": "^4.163.0"
   }
 }

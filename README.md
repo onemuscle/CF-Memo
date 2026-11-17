@@ -1,3 +1,32 @@
+# CF MEMO Performance — CrossFit・ヘルスケア統合プラットフォーム (Cloudflare 版)
+
+日々のトレーニング・持久力・食事・体組成・睡眠・コンディションを **クラウドの DB に永続保存** し、
+グラフ・予測で成長を見える化する個人用プラットフォームです。Claude Code が専属コーチとして記録・分析・レポートを担当します。
+
+- 画面: `platform/` (React) ・ API: `worker/` (Cloudflare Workers + Hono) ・ DB: Cloudflare D1 (`migrations/`)
+- 共通の項目定義・検証・分析: `shared/` ・ Claude Code 用 CLI: `scripts/cfm.ts`
+- **データはコードと分離** され、修正・再デプロイで消えません。ゴミ箱・変更履歴・毎日の暗号化バックアップ付き
+
+| ドキュメント | |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Claude Code の役割とルール (セッション開始時に読む) |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 初期設定・デプロイ・バックアップと復元・安全な更新手順 |
+| [docs/01-requirements.md](docs/01-requirements.md) 〜 [06-roadmap.md](docs/06-roadmap.md) | 要件・技術構成・データ安全設計・画面・Claude 連携・ロードマップ |
+
+```bash
+npm install
+git config core.hooksPath .githooks   # 秘密情報の誤コミット防止
+npm run dev:api        # API + ローカル DB (http://localhost:8787 で画面も見られる)
+npm run seed:dev       # サンプルデータ (ローカルのみ)
+npm run dev:platform   # 画面の開発サーバー (http://localhost:5174)
+npm run typecheck && npm test && npm run test:persistence
+```
+
+以下は従来の **旧 CF MEMO** (GitHub Pages・端末内保存) と **きょうトレ** の説明です。旧 CF MEMO のデータは「メモ」タブ下部の
+「全データを書き出す」で JSON にし、新プラットフォームの「設定 → データ」から取り込めます。
+
+---
+
 # CF MEMO — Fitness Notes
 
 クロスフィット・食事・休養に特化したメモWebアプリ。スマホでの利用を前提にしたモバイルファーストのダークUIです。

@@ -1,0 +1,58 @@
+name: Backup D1
+
+# 毎日の自動バックアップ。本番 D1 を SQL で書き出し、暗号化して GitHub に90日保存する。
+# 復元手順は docs/OPERATIONS.md の「バックアップから戻す」。
+on:
+  schedule:
+    - cron: '17 18 * * *' # 毎日 03:17 (日本時間)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+    steps:
+      - name: 設定の確認
+        id: cfg
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::notice::Cloudflare または BACKUP_PASSPHRASE が未設定のためスキップ"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.skip != '1'
+      - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.skip != '1'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.cfg.outputs.skip != '1'
+        run: npm ci
+      - if: steps.cfg.outputs.skip != '1'
+        run: node scripts/ci-resolve-d1.mjs
+      - name: 書き出しと暗号化
+        if: steps.cfg.outputs.skip != '1'
+        run: |
+          mkdir -p out
+          stamp=$(TZ=Asia/Tokyo date +%Y%m%d-%H%M)
+          npx wrangler d1 export cf-memo --remote --output out/db.sql
+          lines=$(wc -l < out/db.sql)
+          echo "SQL ${lines} 行"
+          [ "$lines" -gt 10 ] || { echo "::error::書き出しが空です"; exit 1; }
+          gzip -9 out/db.sql
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -in out/db.sql.gz -out "out/cf-memo-${stamp}.sql.gz.enc"
+          rm out/db.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: steps.cfg.outputs.skip != '1'
+        with:
+          name: d1-backup-${{ github.run_id }}
+          path: out/*.enc
+          retention-days: 90
+          if-no-files-found: error
