@@ -45,7 +45,7 @@ GitHub のリポジトリ → **Settings** → **Secrets and variables** → **A
 
 ### A-5. 最初のデプロイ
 1. この作業の PR をマージする (または **Actions** → **Deploy to Cloudflare** → **Run workflow**)
-2. 緑のチェックになったら、Cloudflare の **Workers & Pages** に `cf-memo` ができている。URL は `https://cf-memo.<A-1で決めた名前>.workers.dev`
+2. 緑のチェックになったら、Cloudflare の **Workers & Pages** に `cfm` ができている。URL は `https://cfm.<A-1で決めた名前>.workers.dev`
 3. この時点ではログイン設定が無いので、**データは誰にも読めない状態 (すべて 401)** で動いている。これは正常
 4. GitHub の **Settings → Secrets and variables → Actions → Variables** タブで `CFM_URL` = 上の URL を登録 (デプロイ後の自動動作確認に使う)
 
@@ -54,12 +54,12 @@ GitHub のリポジトリ → **Settings** → **Secrets and variables** → **A
 2. **Settings → Authentication** で **One-time PIN** が有効になっていることを確認
 3. **Access → Applications → Add an application → Self-hosted**
    - Application name: `CF MEMO`
-   - Domain: `cf-memo.<名前>.workers.dev` (パスは空欄)
+   - Domain: `cfm.<名前>.workers.dev` (パスは空欄)
    - Policy: Action **Allow**、Include → **Emails** → 自分のメールアドレス
    - 保存後、アプリの **Overview** にある **Application Audience (AUD) Tag** を控える
 4. もう1つアプリを追加 (Claude Code・ショートカット用の入口。Worker 側でトークンを確認するので安全)
    - Application name: `CF MEMO API`
-   - Domain: 同じ `cf-memo.<名前>.workers.dev`、Path: `api/`
+   - Domain: 同じ `cfm.<名前>.workers.dev`、Path: `api/`
    - Policy: Action **Bypass**、Include → **Everyone**
 5. GitHub Secrets にさらに3つ登録:
 
@@ -144,7 +144,7 @@ npx wrangler d1 execute cf-memo-restore --remote --file restore.sql
 
 ### C-5. デプロイが失敗した
 - **データが減っていないことを確認** のステップで止まった → 行数が減っている。デプロイ前のバックアップ (`predeploy-backup-*` Artifact) を C-3 の手順で確認し、Claude Code に相談
-- それ以外 → 前のバージョンは動き続けています。Cloudflare の **Workers & Pages → cf-memo → Deployments** から前のバージョンに戻すこともできます (データには影響しない)
+- それ以外 → 前のバージョンは動き続けています。Cloudflare の **Workers & Pages → cfm → Deployments** から前のバージョンに戻すこともできます (データには影響しない)
 
 ### C-6. 「ログインが必要です」と出る
 - Access のログインが期限切れ → ページを再読み込みしてメールのコードを入れ直す

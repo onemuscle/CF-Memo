@@ -20,7 +20,7 @@ Apple のヘルスケアデータには Web から直接アクセスする仕組
    → **ヘルスケアのサンプルの詳細を取得: 継続時間** → **統計を計算: 合計** → 分に換算 → 変数「睡眠分」
 4. 同様に **安静時心拍数** (過去1日・最新1件)・**心拍変動** (過去1日・平均)・**歩数** (今日・合計)・**アクティブエネルギー** (今日・合計)
 5. **URL の内容を取得**
-   - URL: `https://cf-memo.<名前>.workers.dev/api/e/sleep_logs`
+   - URL: `https://cfm.<名前>.workers.dev/api/e/sleep_logs`
    - 方法: POST
    - ヘッダ: `Authorization` = `Bearer <API_TOKEN>`、`Content-Type` = `application/json`
    - 本文 (JSON): `date` = 今日、`duration_min` = 睡眠分、`hrv_ms` = HRV、`resting_hr` = 安静時心拍、`source` = `health`

@@ -38,13 +38,13 @@ Web アプリにすぐ反映 (ホーム・分析・目標)
 
 ### この Claude Code (クラウド環境) から使う場合
 1. 接続先 URL を環境変数 `CFM_URL` に設定 (秘密ではないので環境の設定でよい)。Claude Code に「CFM_URL を設定して」と頼めば、環境設定の変更を提案します
-2. API トークンは **チャットに貼らない**。Claude Code が表示する安全な入力フォーム (認証情報の登録) で、ホスト `cf-memo.<名前>.workers.dev` に対して `API_TOKEN` の値を登録する。以後、通信時に自動で付与され、Claude Code 自身もトークンの値は見えない
+2. API トークンは **チャットに貼らない**。Claude Code が表示する安全な入力フォーム (認証情報の登録) で、ホスト `cfm.<名前>.workers.dev` に対して `API_TOKEN` の値を登録する。以後、通信時に自動で付与され、Claude Code 自身もトークンの値は見えない
 3. `npm run cfm -- doctor` で「認証: OK」になれば完了
 
 ### 自分の PC の Claude Code から使う場合
 リポジトリ直下に `.cfm.json` を作る (gitignore 済み・コミットされない):
 ```json
-{ "url": "https://cf-memo.<名前>.workers.dev", "token": "<API_TOKEN>" }
+{ "url": "https://cfm.<名前>.workers.dev", "token": "<API_TOKEN>" }
 ```
 
 ### Access の構成が「方式B」(/api/ もバイパスしない) の場合
