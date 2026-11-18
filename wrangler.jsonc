@@ -1,0 +1,26 @@
+// Cloudflare Workers の設定 (CF MEMO プラットフォーム)
+// 秘密情報 (API_TOKEN など) はここに書かない。`wrangler secret put` で登録する。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cfm",
+  "main": "worker/src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist-platform",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cf-memo",
+      // デプロイ時に GitHub Actions が実際の ID に置き換える (scripts/ci-resolve-d1.mjs)
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+  // ACCESS_TEAM_DOMAIN / ACCESS_AUD / ALLOWED_EMAILS / API_TOKEN は Worker の Secret として登録する
+  // (メールアドレスを公開リポジトリに書かないため)。GitHub Actions がデプロイ時に GitHub Secrets から送る。
+}

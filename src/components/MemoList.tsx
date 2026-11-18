@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CATEGORY_META, formatDate, type Category, type Memo } from '../types'
 import { useImageUrl } from '../images'
 import { PlusIcon, SearchIcon } from './Icons'
+import { exportLegacyData } from '../legacyExport'
 
 interface Props {
   memos: Memo[]
@@ -95,6 +96,23 @@ export default function MemoList({ memos, onOpen, onNew }: Props) {
           })}
         </ul>
       )}
+
+      <div className="export-box">
+        <p>新しい CF MEMO (クラウド版) へ移すときは、ここから全データ (メモ・PR記録・WOD・写真) を書き出します。書き出しても、この端末のデータは消えません。</p>
+        <button
+          className="chip"
+          onClick={async () => {
+            try {
+              const r = await exportLegacyData()
+              alert(`書き出しました: メモ ${r.memos}件・PR ${r.prs}件・WOD ${r.wods}件・写真 ${r.images}枚\nファイルは「ダウンロード」や「ファイル」アプリに保存されます。`)
+            } catch (e) {
+              alert(`書き出しに失敗しました: ${(e as Error).message}`)
+            }
+          }}
+        >
+          全データを書き出す (.json)
+        </button>
+      </div>
 
       <button className="fab" onClick={onNew} aria-label="新規メモ">
         <PlusIcon size={26} />

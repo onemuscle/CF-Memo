@@ -1,0 +1,31 @@
+name: CI
+
+# すべてのブランチ・プルリクエストで、デプロイ前に壊れていないかを確認する
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 秘密情報・健康データの誤コミット検査
+        run: npm run check:secrets
+      - name: 型チェック
+        run: npm run typecheck
+      - name: 単体テスト (分析ロジック・入力検証・マイグレーションの安全性)
+        run: npm test
+      - run: npm run check:workout
+      - name: ビルド (旧アプリ + きょうトレ / プラットフォーム)
+        run: npm run build && npm run build:platform
+      - name: データ永続性テスト (ローカルの Cloudflare 環境)
+        run: npm run test:persistence

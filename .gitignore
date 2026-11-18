@@ -4,3 +4,20 @@ dist
 public/tesseract
 *.local
 .DS_Store
+dist-platform
+# Cloudflare のローカル開発用 (ローカルDB・秘密情報)
+.wrangler
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+# CLI の接続設定 (トークンを含む)
+.cfm.json
+# バックアップ (健康データを含むのでリポジトリに入れない)
+backups/
+*.sqlite
+*.sqlite3
+cf-memo-backup-*.json
+*.sql.gz
+*.enc
