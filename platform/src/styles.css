@@ -1394,3 +1394,9 @@ ul.plain {
     opacity: 0.45;
   }
 }
+.scan-box.hint {
+  border-style: solid;
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+}

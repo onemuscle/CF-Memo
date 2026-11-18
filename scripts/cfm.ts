@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * cfm — Claude Code (とあなた) が CF MEMO のデータベースを読み書きするためのコマンド
+ * cfm — Claude Code (とあなた) が VITALOG のデータベースを読み書きするためのコマンド
  *
  *   npm run cfm -- context              今の状態のまとめ (Claude Code がセッション開始時に読む)
  *   npm run cfm -- add strength_sets date=2026-11-17 movement="Back Squat" weight_kg=120 reps=5
@@ -151,7 +151,7 @@ async function context(days: number) {
   const b = await call<Bundle>('GET', `/api/bundle?from=${addDays(today, -400)}&reports=1`)
   const rows = (n: string) => (b.data[n] ?? []) as Record<string, unknown>[]
   const out: string[] = []
-  out.push(`# CF MEMO コンテキスト (${today} 時点・日本時間)`, '')
+  out.push(`# VITALOG コンテキスト (${today} 時点・日本時間)`, '')
   out.push('## プロフィール・方針 (DB の profile)')
   const prof = Object.entries(b.profile)
   if (!prof.length) out.push('- 未登録。ユーザーに確認して `cfm profile set` で保存すること')

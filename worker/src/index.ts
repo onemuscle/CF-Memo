@@ -65,7 +65,7 @@ async function body<T>(c: Context<App>): Promise<T> {
   }
 }
 
-app.get('/api/me', c => c.json(c.get('principal')))
+app.get('/api/me', c => c.json({ ...c.get('principal'), features: { wod_scan: !!c.env.ANTHROPIC_API_KEY } }))
 
 app.get('/api/schema', c => c.json({ version: SCHEMA_VERSION, entities: ENTITIES }))
 
