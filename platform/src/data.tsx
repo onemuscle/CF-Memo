@@ -121,6 +121,10 @@ export function rowTitle(name: string, r: Row): string {
       return [r.weight_kg ? `${r.weight_kg}kg` : '', r.body_fat_pct ? `体脂肪 ${r.body_fat_pct}%` : '', r.waist_cm ? `腹囲 ${r.waist_cm}cm` : ''].filter(Boolean).join(' / ') || '体組成'
     case 'nutrition_entries':
       return `${fieldValueLabel(d.fields.find(f => f.name === 'meal')!, r.meal) || '食事'} ${r.kcal ? `${fmtNum(Number(r.kcal))}kcal` : ''} ${r.protein_g ? `P${fmtNum(Number(r.protein_g))}` : ''}`.trim()
+    case 'daily_health':
+      return [r.steps != null ? `歩数 ${fmtNum(Number(r.steps))}` : '', r.resting_hr ? `安静時心拍 ${r.resting_hr}` : '', r.hrv_ms ? `HRV ${r.hrv_ms}ms` : '', r.active_kcal ? `${fmtNum(Number(r.active_kcal))}kcal` : '']
+        .filter(Boolean)
+        .join(' / ') || 'Apple Watch'
     case 'wellness':
       return `疲労 ${r.fatigue ?? '—'} / 筋肉痛 ${r.soreness ?? '—'} / ストレス ${r.stress ?? '—'}`
   }

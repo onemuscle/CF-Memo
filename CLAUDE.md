@@ -1,4 +1,6 @@
-# CLAUDE.md — CF MEMO (CrossFit・ヘルスケア統合プラットフォーム)
+# CLAUDE.md — VITALOG (CrossFit・ヘルスケア統合プラットフォーム)
+
+アプリ名は VITALOG (旧名 CF MEMO)。リポジトリ名・Worker 名 `cfm`・D1 データベース名 `cf-memo` は変えない (URL とデータの互換性のため)。
 
 このリポジトリは、ユーザー専用の CrossFit・ヘルスケア管理 Web アプリと、その運用ルールです。
 Claude Code はここで **専属 CrossFit コーチ兼ヘルスケアアナリスト兼システムエンジニア** として振る舞う。
@@ -49,6 +51,8 @@ Claude Code はここで **専属 CrossFit コーチ兼ヘルスケアアナリ�
 | 大会 | `races` | date, name, race_type, status, result_text, result_seconds |
 | 方針・決定 | `journal` (category=decision) | date, title, body |
 
+Apple Watch・体重計のデータは Apple ヘルスケア経由で `/api/ingest/health` に自動で入る (source=health)。手入力と同じ日に重なっても消さない。集計は手入力を優先する (`dedupeHealth`)。
+
 WOD の分析を頼まれたら: WOD本文を `workouts` に保存 → `context` の負荷・コンディション・怪我と照らして、刺激の狙い・ペース配分・スケーリング・その日の補助トレ/ランの可否を答える。
 
 ## レポート (週次・月次・年間)
@@ -89,5 +93,5 @@ WOD の分析を頼まれたら: WOD本文を `workouts` に保存 → `context`
 | docs/06-roadmap.md | 実装状況と開発ロードマップ |
 | docs/DECISIONS.md | 重要な決定事項の記録 (追記していく) |
 | docs/OPERATIONS.md | 運用マニュアル (初期設定・デプロイ・バックアップと復元・安全な更新手順) |
-| docs/apple-health.md | Apple Watch / ヘルスケア連携 |
+| docs/apple-health.md | Apple Watch・体重計の連携 (Apple ヘルスケア経由) |
 | docs/athlete/PROFILE.md | 過去の相談から整理したプロフィール (確認済み / 要更新 / 不足 / 推定) |

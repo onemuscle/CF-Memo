@@ -4,6 +4,9 @@ import { authenticate, type Principal } from './auth.ts'
 import type { Env } from './env.ts'
 import * as store from './store.ts'
 import { HttpError } from './store.ts'
+import { parseHealthPayload } from '../../shared/health.ts'
+import { ingestHealth } from './health.ts'
+import { scanWod, ScanError, toWorkoutFields } from './wodscan.ts'
 import { exportAll, fromBase64, importChunk, importProfile, IMPORT_CHUNK, type ExportFile } from './transfer.ts'
 
 type App = { Bindings: Env; Variables: { principal: Principal } }
@@ -246,6 +249,32 @@ app.delete('/api/attachments/:id', async c => {
     store.auditStmt(c.env.DB, actor(c), 'delete', 'attachments', c.req.param('id'), null, { deleted_at: ts }),
   ])
   return c.json({ ok: true })
+})
+
+// ---- WOD 写真の読み取り ----
+
+app.post('/api/wod/scan', async c => {
+  const { attachment_id } = await body<{ attachment_id?: string }>(c)
+  if (!attachment_id) throw new HttpError(400, 'attachment_id が必要です')
+  if (!c.env.ANTHROPIC_API_KEY) throw new HttpError(503, '写真の読み取りが未設定です (GitHub Secrets に ANTHROPIC_API_KEY を登録して再デプロイ)')
+  const row = await c.env.DB.prepare('SELECT mime, data FROM attachments WHERE id = ? AND deleted_at IS NULL').bind(attachment_id).first<{ mime: string; data: ArrayBuffer | number[] }>()
+  if (!row) throw new HttpError(404, '画像が見つかりません')
+  const bytes = row.data instanceof ArrayBuffer ? new Uint8Array(row.data) : Uint8Array.from(row.data)
+  try {
+    const wod = await scanWod(c.env.ANTHROPIC_API_KEY, bytes, row.mime)
+    return c.json({ wod, fields: { ...toWorkoutFields(wod), attachment_id } })
+  } catch (e) {
+    if (e instanceof ScanError) throw new HttpError(e.status, e.message)
+    throw e
+  }
+})
+
+// ---- Apple ヘルスケア (Apple Watch・体重計) の取り込み ----
+
+app.post('/api/ingest/health', async c => {
+  const parsed = parseHealthPayload(await body<unknown>(c))
+  const r = await ingestHealth(c.env.DB, parsed, c.get('principal').kind === 'token' ? 'health' : actor(c))
+  return c.json(r, r.invalid.length && !r.inserted && !r.updated ? 422 : 200)
 })
 
 // ---- 変更履歴 ----

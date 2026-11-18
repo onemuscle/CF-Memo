@@ -13,7 +13,10 @@ export default function MorePage() {
   return (
     <div className="page">
       <header className="page-head">
-        <h1>SETTINGS</h1>
+        <div>
+          <div className="eyebrow">SETTINGS</div>
+          <h1>設定</h1>
+        </div>
       </header>
       <Segmented<Tab>
         value={tab}
@@ -392,11 +395,16 @@ function Connect() {
           リポジトリの <code>docs/05-claude-integration.md</code> にあります。
         </p>
       </Card>
-      <Card title="Apple Watch / ヘルスケア">
+      <Card title="Apple Watch・体重計 (Apple ヘルスケア)">
         <p className="small">
-          iPhone の「ショートカット」アプリで、ヘルスケアの睡眠・安静時心拍・HRV・歩数を毎朝自動で送れます。手順は <code>docs/apple-health.md</code> にあります。
+          Apple Watch の睡眠・心拍・HRV・ワークアウトと、Bluetooth 体重計の体重・体脂肪率は、いったん iPhone の「ヘルスケア」に集まります。そこから自動でここに送る設定をすると、毎日の手入力が要らなくなります。
         </p>
-        <p className="muted small">送り先: このサイトの /api/e/daily_health と /api/e/sleep_logs (API トークンが必要)</p>
+        <ul className="plain small">
+          <li>送り先: <code>{location.origin}/api/ingest/health</code></li>
+          <li>ヘッダー: <code>Authorization: Bearer (API トークン)</code></li>
+          <li>手順: リポジトリの <code>docs/apple-health.md</code></li>
+        </ul>
+        <p className="muted small">同じ日のデータを何度送っても二重にはなりません。手入力した WOD と Apple Watch のワークアウトが重なった日は、集計では手入力を優先します。</p>
       </Card>
     </>
   )

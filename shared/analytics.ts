@@ -307,10 +307,33 @@ export function weeklyRate(series: { date: string; value: number }[], asOf: stri
   return { perWeek: round(t.slope * 7, 2), n: t.n }
 }
 
+// ---------- Apple Watch と手入力の重複 ----------
+
+/**
+ * Apple Watch (source=health) のワークアウトは、同じ日に手入力の記録があれば集計から外す。
+ * 例: 朝の WOD を手入力し、Apple Watch も同じ WOD を記録した → 手入力の1件として数える。
+ * 行そのものは消さない (心拍などは Apple Watch 側の行で見られる)。
+ */
+export function dedupeHealth(b: Bundle): Bundle {
+  const w = rows(b, 'workouts')
+  const c = rows(b, 'cardio_sessions')
+  const manualW = new Set(w.filter(r => r.source !== 'health').map(r => s(r.date)))
+  const manualC = new Set(c.filter(r => r.source !== 'health').map(r => `${s(r.date)}|${s(r.modality)}`))
+  return {
+    ...b,
+    data: {
+      ...b.data,
+      workouts: w.filter(r => r.source !== 'health' || !manualW.has(s(r.date))),
+      cardio_sessions: c.filter(r => r.source !== 'health' || !manualC.has(`${s(r.date)}|${s(r.modality)}`)),
+    },
+  }
+}
+
 // ---------- トレーニング負荷・回復 ----------
 
 /** 1日ごとの負荷 (セッションRPE × 分)。有酸素は RPE が無ければ内容から推定 */
-export function dailyLoad(b: Bundle): Map<string, number> {
+export function dailyLoad(input: Bundle): Map<string, number> {
+  const b = dedupeHealth(input)
   const m = new Map<string, number>()
   const add = (d: string, v: number) => m.set(d, (m.get(d) ?? 0) + v)
   const linkedCardio = new Set<string>()
@@ -657,7 +680,8 @@ export interface PeriodSummary {
   activeInjuries: string[]
 }
 
-export function periodSummary(b: Bundle, from: string, to: string): PeriodSummary {
+export function periodSummary(input: Bundle, from: string, to: string): PeriodSummary {
+  const b = dedupeHealth(input)
   const within = (name: string, field = 'date') => rows(b, name).filter(r => inRange(s(r[field]), from, to))
   const ws = within('workouts')
   const byType: Record<string, number> = {}

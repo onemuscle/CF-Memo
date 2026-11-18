@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ENTITIES, entity, type EntityDef } from '../../../shared/schema.ts'
-import { Card, Empty, Segmented } from '../components/ui.tsx'
+import { Empty, Segmented } from '../components/ui.tsx'
+import Icon from '../components/Icon.tsx'
 import type { Row } from '../api.ts'
 import { rowTitle, rowsOf, useData } from '../data.tsx'
 
@@ -12,22 +13,6 @@ const GROUPS: [string, string][] = [
   ['endurance', '持久'],
   ['body', '体・食事'],
   ['recovery', '回復'],
-]
-
-const ADDABLE: QuickKind[] = [
-  'workouts',
-  'strength_sets',
-  'skill_logs',
-  'cardio_sessions',
-  'races',
-  'body_metrics',
-  'nutrition_entries',
-  'sleep_logs',
-  'wellness',
-  'injuries',
-  'supplements',
-  'nutrition_targets',
-  'journal',
 ]
 
 export default function LogPage({ onOpen }: { onOpen: (name: string, row?: Row) => void }) {
@@ -52,21 +37,15 @@ export default function LogPage({ onOpen }: { onOpen: (name: string, row?: Row) 
   return (
     <div className="page">
       <header className="page-head">
-        <h1>LOG</h1>
-      </header>
-      <Card title="記録する">
-        <div className="add-grid">
-          {ADDABLE.map(n => (
-            <button key={n} className="add-btn" onClick={() => onOpen(n)}>
-              + {entity(n)!.label}
-            </button>
-          ))}
+        <div>
+          <div className="eyebrow">HISTORY</div>
+          <h1>履歴</h1>
         </div>
-      </Card>
+      </header>
 
       <Segmented value={group} options={GROUPS} onChange={setGroup} />
 
-      {timeline.length === 0 && <Empty>まだ記録がありません。上のボタンから記録できます。</Empty>}
+      {timeline.length === 0 && <Empty>まだ記録がありません。下の ＋ から記録できます。</Empty>}
       {timeline.slice(0, days).map(([date, items]) => (
         <section key={date} className="day">
           <h3 className="day-head">
@@ -74,8 +53,13 @@ export default function LogPage({ onOpen }: { onOpen: (name: string, row?: Row) 
           </h3>
           {items.map(({ name, row }) => (
             <button key={row.id} className="entry" onClick={() => onOpen(name, row)}>
-              <span className={`tag g-${entity(name)!.group}`}>{entity(name)!.label}</span>
-              <span className="entry-title">{rowTitle(name, row)}</span>
+              <span className={`entry-icon g-${entity(name)!.group}`}>
+                <Icon name={name} size={18} />
+              </span>
+              <span className="entry-title">
+                {rowTitle(name, row)}
+                <small>{entity(name)!.label}{row.source === 'health' ? ' ・ Apple ヘルスケア' : row.source === 'agent' ? ' ・ Claude Code' : ''}</small>
+              </span>
               {row.note ? <span className="entry-note">{String(row.note).slice(0, 60)}</span> : null}
               {name === 'workouts' && row.description ? <span className="entry-note">{String(row.description).slice(0, 80)}</span> : null}
             </button>

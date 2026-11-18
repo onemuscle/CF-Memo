@@ -1,4 +1,4 @@
-# 運用マニュアル
+# 運用マニュアル (VITALOG)
 
 専門知識が無くても進められるように、画面の操作を順番に書いています。
 所要時間の目安: 初期設定 40〜60分 (1回だけ)。
@@ -72,6 +72,15 @@ GitHub のリポジトリ → **Settings** → **Secrets and variables** → **A
 6. **Actions → Deploy to Cloudflare → Run workflow** でもう一度デプロイ (Secrets が Worker に登録される)
 7. スマホで URL を開く → メールアドレスを入力 → 届いた6桁のコードを入力 → アプリが表示されれば完了
 8. Safari の共有ボタン → **ホーム画面に追加** でアプリのように使える
+
+### A-6b. WOD 写真の自動読み取りを有効にする (任意・従量課金)
+1. https://console.anthropic.com でアカウントを作り、**Billing** で少額 (例 $5) をチャージ
+2. **API Keys** → **Create Key** → 表示されたキーを控える
+3. GitHub Secrets に `ANTHROPIC_API_KEY` として登録 → **Actions → Deploy to Cloudflare → Run workflow**
+4. 費用の目安: 写真1枚の読み取りで数円 (Claude Opus 5.5・思考は浅め)。キーはサーバー (Worker) にだけ置かれ、ブラウザには渡りません
+
+### A-6c. Apple Watch・体重計をつなぐ (任意)
+docs/apple-health.md を参照。Bluetooth 体重計は、メーカーのアプリで Apple ヘルスケア連携をオンにすると、ヘルスケア経由で入ります。
 
 ### A-7. Claude Code とつなぐ
 docs/05-claude-integration.md の「接続の設定」を参照。

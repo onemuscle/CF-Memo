@@ -1,4 +1,6 @@
-# CF MEMO Performance — CrossFit・ヘルスケア統合プラットフォーム (Cloudflare 版)
+# VITALOG — CrossFit・ヘルスケア統合プラットフォーム (Cloudflare 版)
+
+> 旧名 CF MEMO。リポジトリ名・Worker 名 (`cfm`)・データベース名 (`cf-memo`) は互換性のため変えていません。
 
 日々のトレーニング・持久力・食事・体組成・睡眠・コンディションを **クラウドの DB に永続保存** し、
 グラフ・予測で成長を見える化する個人用プラットフォームです。Claude Code が専属コーチとして記録・分析・レポートを担当します。
