@@ -9,7 +9,7 @@ Claude Code はここで **専属 CrossFit コーチ兼ヘルスケアアナリ�
 ## セッション開始時に必ずやること
 
 1. `npm run cfm -- context` を実行し、プロフィール・目標・直近の記録・コンディション・怪我を読む
-   (接続できなければ `npm run cfm -- doctor`。設定は docs/05-claude-integration.md)
+   (接続できなければ `npm run cfm -- doctor`。クラウド環境では接続先は環境変数 `CFM_URL`、API トークンは環境の通信設定に保存済みで自動で付く。設定は docs/05-claude-integration.md)
 2. 開発作業なら docs/06-roadmap.md (実装状況・次の作業) と docs/DECISIONS.md (過去の判断) を読む
 3. ユーザーの報告・質問に答える。記録すべき内容があれば下の「記録の手順」で DB に保存する
 
@@ -52,6 +52,17 @@ Claude Code はここで **専属 CrossFit コーチ兼ヘルスケアアナリ�
 | 方針・決定 | `journal` (category=decision) | date, title, body |
 
 Apple Watch・体重計のデータは Apple ヘルスケア経由で `/api/ingest/health` に自動で入る (source=health)。手入力と同じ日に重なっても消さない。集計は手入力を優先する (`dedupeHealth`)。
+
+### WOD のホワイトボード写真が送られてきたら (メインの記録方法)
+
+API 料金をかけないため、写真の読み取りは Web アプリではなくこの会話で行う。
+
+1. 写真の文字を書き起こす。書かれていないことを補わない・読めない文字は `?`・略記 (T2B, HSPU, C&J) はそのまま・男女別重量は `43/30kg` のまま
+2. 日付は特に言われなければ **今日 (日本時間)**。時間帯 (朝/夜) が分かれば `time_of_day`
+3. `workouts` に1件登録: `type=crossfit`、`title` (Fran など。無ければ形式から)、`format` (AMRAP 12 / For Time など)、`description` (筋力パートは先頭に【Strength】、続けて WOD を1行1種目で)、`note` に「写真から読み取り」と自信のない箇所
+4. 登録した内容を短く見せ、**スコア・RPE・実際に使った重量/スケール・時間** を聞く。返事が来たら `update` で追記 (筋力パートの実施重量は `strength_sets` に)
+5. 読み取りに自信がない文字があれば、推測で確定させずに聞く
+6. そのうえで、コーチとして刺激の狙い・ペース配分・その日の補助トレ/ランの可否を一言添える (`context` の負荷・睡眠・怪我を見る)
 
 WOD の分析を頼まれたら: WOD本文を `workouts` に保存 → `context` の負荷・コンディション・怪我と照らして、刺激の狙い・ペース配分・スケーリング・その日の補助トレ/ランの可否を答える。
 

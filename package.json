@@ -18,7 +18,7 @@
     "test:persistence": "node scripts/test-persistence.ts",
     "migrations:lock": "node scripts/lock-migrations.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "cfm": "node scripts/cfm.ts",
+    "cfm": "NODE_USE_ENV_PROXY=1 node scripts/cfm.ts",
     "seed:dev": "node scripts/seed-dev.ts"
   },
   "dependencies": {

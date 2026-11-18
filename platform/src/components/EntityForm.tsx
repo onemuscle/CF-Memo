@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { todayISO } from '../../../shared/analytics.ts'
 import { entity, type FieldDef } from '../../../shared/schema.ts'
 import { api, ApiError, saveRecord, type Row } from '../api.ts'
@@ -46,6 +46,16 @@ export const COMMON_SKILLS = [
   'Pistol',
   'Wall Walk',
 ]
+
+/** サーバー側の機能 (WOD 写真の読み取りが使えるか) を1回だけ取得 */
+let featuresPromise: Promise<{ wod_scan: boolean }> | null = null
+function getFeatures() {
+  featuresPromise ??= api
+    .get<{ features?: { wod_scan: boolean } }>('/api/me')
+    .then(r => r.features ?? { wod_scan: false })
+    .catch(() => ({ wod_scan: false }))
+  return featuresPromise
+}
 
 const HIDDEN = new Set(['source', 'workout_id', 'attachment_ids', 'metrics'])
 
@@ -127,6 +137,10 @@ export default function EntityForm({
   const [showMore, setShowMore] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [scanEnabled, setScanEnabled] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (name === 'workouts') getFeatures().then(f => setScanEnabled(f.wod_scan))
+  }, [name])
   const [scan, setScan] = useState<{ state: 'idle' | 'busy' | 'done' | 'error'; msg?: string; preview?: string }>({ state: 'idle' })
 
   /** WOD の写真 → アップロード → Claude で読み取り → 空欄に自動入力 */
@@ -333,7 +347,16 @@ export default function EntityForm({
           <option key={m} value={m} />
         ))}
       </datalist>
-      {name === 'workouts' && (
+      {name === 'workouts' && scanEnabled === false && !editing && (
+        <div className="scan-box hint">
+          <Icon name="camera" size={22} />
+          <div className="scan-text">
+            <b>ホワイトボードの写真は Claude Code へ</b>
+            <small>写真を送って「今日のWOD」と伝えると、読み取ってここに記録します (追加料金なし)</small>
+          </div>
+        </div>
+      )}
+      {name === 'workouts' && scanEnabled && (
         <div className={`scan-box ${scan.state}`}>
           {scan.preview && <img src={scan.preview} alt="" />}
           <div className="scan-text">
