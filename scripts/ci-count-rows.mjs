@@ -4,19 +4,20 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
+
 const sql = readFileSync('migrations/0001_init.sql', 'utf8')
 const tables = [...sql.matchAll(/CREATE TABLE (\w+)/g)].map(m => m[1])
-const query = tables.map(t => `SELECT '${t}' AS t, COUNT(*) AS n FROM ${t}`).join(' UNION ALL ')
-let rows = []
+// D1 は複合SELECT (UNION) の項数上限が低いため、スカラーサブクエリで1行にまとめる
+const query = `SELECT ${tables.map(t => `(SELECT COUNT(*) FROM ${t}) AS ${t}`).join(', ')}`
+let now = {}
 try {
   const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'cf-memo', '--remote', '--json', '--command', query], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-  rows = JSON.parse(out)[0].results
+  now = JSON.parse(out)[0].results[0] ?? {}
 } catch (e) {
   // 初回デプロイ (まだテーブルが無い) のときだけ許す
   if (process.argv[2] === 'save' && /no such table/i.test(String(e.stdout) + String(e.stderr))) console.log('初回デプロイのためテーブルなし')
   else throw e
 }
-const now = Object.fromEntries(rows.map(r => [r.t, r.n]))
 mkdirSync('out', { recursive: true })
 if (process.argv[2] === 'save') {
   writeFileSync('out/rows-before.json', JSON.stringify(now))
