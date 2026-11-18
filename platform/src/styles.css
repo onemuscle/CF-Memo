@@ -1315,7 +1315,10 @@ ul.plain {
   align-items: center;
 }
 .date-row input {
-  flex: 1;
+  /* iPhone の日付欄は中身の幅より縮まないので、明示的に縮められるようにする */
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
 }
 .date-row .chips {
   flex-wrap: nowrap;
