@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { entity } from '../../shared/schema.ts'
 import type { Row } from './api.ts'
 import EntityForm from './components/EntityForm.tsx'
+import Icon from './components/Icon.tsx'
 import { Sheet } from './components/ui.tsx'
 import { DataProvider, useData } from './data.tsx'
 import AnalysisPage from './pages/AnalysisPage.tsx'
@@ -10,15 +11,30 @@ import GoalsPage from './pages/GoalsPage.tsx'
 import LogPage from './pages/LogPage.tsx'
 import MorePage from './pages/MorePage.tsx'
 
+export const APP_NAME = 'VITALOG'
+
 type Tab = 'home' | 'log' | 'analysis' | 'goals' | 'more'
 
-const TABS: { key: Tab; label: string; icon: JSX.Element }[] = [
-  { key: 'home', label: 'ホーム', icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /> },
-  { key: 'log', label: '記録', icon: <path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /> },
-  { key: 'analysis', label: '分析', icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
-  { key: 'goals', label: '目標', icon: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="0.5" /></> },
-  { key: 'more', label: '設定', icon: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></> },
+const TABS: { key: Tab | 'add'; label: string; icon: string }[] = [
+  { key: 'home', label: 'ホーム', icon: 'home' },
+  { key: 'log', label: '履歴', icon: 'history' },
+  { key: 'add', label: '記録', icon: 'plus' },
+  { key: 'analysis', label: '分析', icon: 'chart' },
+  { key: 'goals', label: '目標', icon: 'target' },
 ]
+
+/** 「＋」から選ぶ記録の種類 (上ほどよく使う) */
+export const ADD_MAIN: { name: string; label: string; hint: string }[] = [
+  { name: 'workouts', label: 'WOD', hint: 'トレーニング全般。写真で自動入力' },
+  { name: 'strength_sets', label: '重量×回数', hint: 'スクワット 120kg × 5 など' },
+  { name: 'cardio_sessions', label: '有酸素', hint: 'ラン・バイク・Zone2' },
+  { name: 'body_metrics', label: '体重・体組成', hint: '体重・体脂肪率・腹囲' },
+  { name: 'nutrition_entries', label: '食事', hint: 'カロリー・PFC' },
+  { name: 'sleep_logs', label: '睡眠', hint: '時間・質' },
+  { name: 'wellness', label: 'コンディション', hint: '疲労・筋肉痛・体調' },
+  { name: 'skill_logs', label: 'スキル', hint: 'Ring Muscle-up など' },
+]
+export const ADD_MORE = ['races', 'injuries', 'supplements', 'nutrition_targets', 'goals', 'journal']
 
 interface SheetState {
   name: string
@@ -29,15 +45,28 @@ interface SheetState {
 function Shell() {
   const [tab, setTab] = useState<Tab>('home')
   const [sheet, setSheet] = useState<SheetState | null>(null)
+  const [picker, setPicker] = useState(false)
   const { bundle, loading, error, refresh, pending } = useData()
-  const open = (name: string, row?: Row, defaults?: Record<string, unknown>) => setSheet({ name, row, defaults })
+  const open = (name: string, row?: Row, defaults?: Record<string, unknown>) => {
+    setPicker(false)
+    setSheet({ name, row, defaults })
+  }
 
   return (
     <div className="app">
-      {pending > 0 && <div className="banner warn">送信待ち {pending} 件 — 通信が戻ると自動で送ります</div>}
+      <header className="topbar">
+        <button className="brand" onClick={() => setTab('home')} aria-label={`${APP_NAME} ホーム`}>
+          <img src="/icon.svg" alt="" width={26} height={26} />
+          <span>{APP_NAME}</span>
+        </button>
+        <button className={`icon-btn plain ${tab === 'more' ? 'on' : ''}`} onClick={() => setTab('more')} aria-label="設定">
+          <Icon name="settings" />
+        </button>
+      </header>
+      {pending > 0 && <div className="banner warn">送信待ち {pending} 件 — 電波が戻ると自動で送ります</div>}
       {error && (
         <div className="banner err">
-          {error}
+          <span>{error}</span>
           <button className="link-btn" onClick={() => (error.includes('再読み込み') ? location.reload() : refresh())}>
             再試行
           </button>
@@ -45,22 +74,53 @@ function Shell() {
       )}
       <main>
         {!bundle && loading && <div className="loading">読み込み中…</div>}
-        {bundle && tab === 'home' && <Dashboard onQuick={k => open(k)} onGo={t => setTab(t)} />}
+        {bundle && tab === 'home' && <Dashboard onOpen={open} onAdd={() => setPicker(true)} onGo={t => setTab(t)} />}
         {bundle && tab === 'log' && <LogPage onOpen={open} />}
         {bundle && tab === 'analysis' && <AnalysisPage onOpen={open} />}
         {bundle && tab === 'goals' && <GoalsPage onOpen={open} />}
         {tab === 'more' && <MorePage />}
       </main>
       <nav className="tabbar">
-        {TABS.map(t => (
-          <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)} aria-current={tab === t.key}>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              {t.icon}
-            </svg>
-            <span>{t.label}</span>
-          </button>
-        ))}
+        {TABS.map(t =>
+          t.key === 'add' ? (
+            <button key="add" className="tab-add" onClick={() => setPicker(true)} aria-label="記録する">
+              <span>
+                <Icon name="plus" size={28} />
+              </span>
+            </button>
+          ) : (
+            <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key as Tab)} aria-current={tab === t.key}>
+              <Icon name={t.icon} />
+              <span>{t.label}</span>
+            </button>
+          ),
+        )}
       </nav>
+      {picker && (
+        <Sheet title="何を記録しますか?" onClose={() => setPicker(false)}>
+          <div className="picker">
+            {ADD_MAIN.map(a => (
+              <button key={a.name} className="picker-item" onClick={() => open(a.name)}>
+                <span className={`picker-icon g-${entity(a.name)!.group}`}>
+                  <Icon name={a.name} />
+                </span>
+                <span className="picker-text">
+                  <b>{a.label}</b>
+                  <small>{a.hint}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <h3 className="sub-head">その他</h3>
+          <div className="chips">
+            {ADD_MORE.map(n => (
+              <button key={n} className="chip" onClick={() => open(n, undefined, n === 'goals' ? { status: 'active' } : undefined)}>
+                {entity(n)!.label}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
       {sheet && (
         <Sheet title={`${entity(sheet.name)?.label ?? ''}${sheet.row ? 'を編集' : 'を記録'}`} onClose={() => setSheet(null)}>
           <EntityForm key={sheet.row?.id ?? sheet.name} name={sheet.name} initial={sheet.row} defaults={sheet.defaults} onDone={() => setSheet(null)} />

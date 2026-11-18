@@ -4,6 +4,7 @@ import {
   aerobicEfficiency,
   dailyLoad,
   dailyValues,
+  dedupeHealth,
   durationLabel,
   liftSummaries,
   movingAverage,
@@ -36,7 +37,10 @@ export default function AnalysisPage({ onOpen }: { onOpen: (name: string, row?: 
   return (
     <div className="page">
       <header className="page-head">
-        <h1>ANALYSIS</h1>
+        <div>
+          <div className="eyebrow">ANALYSIS</div>
+          <h1>分析</h1>
+        </div>
         <button className="link-btn" onClick={() => setRange(range === 'all' ? 'recent' : 'all')}>
           {range === 'all' ? '全期間を表示中' : '直近400日を表示中'}
         </button>
@@ -235,7 +239,8 @@ function LiftCard({ L, bodyWeight }: { L: LiftSummary; bodyWeight: number | null
 
 function Endurance({ b }: { b: Bundle }) {
   const today = todayISO()
-  const cardio = rowsOf(b, 'cardio_sessions')
+  // Apple Watch と手入力が同じ日・同じ種目にあれば手入力を優先 (二重計上しない)
+  const cardio = (dedupeHealth(b).data.cardio_sessions ?? []) as Row[]
   const runs = cardio.filter(c => c.modality === 'run')
   const weeks = Array.from({ length: 12 }, (_, i) => weekStart(addDays(today, -7 * (11 - i))))
   const weekly = weeks.map(w => ({

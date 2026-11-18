@@ -85,9 +85,10 @@ jobs:
           ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
           API_TOKEN: ${{ secrets.API_TOKEN }}
           ALLOWED_SERVICE_TOKEN_IDS: ${{ secrets.ALLOWED_SERVICE_TOKEN_IDS }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           node -e '
-            const keys = ["ACCESS_TEAM_DOMAIN","ACCESS_AUD","ALLOWED_EMAILS","API_TOKEN","ALLOWED_SERVICE_TOKEN_IDS"];
+            const keys = ["ACCESS_TEAM_DOMAIN","ACCESS_AUD","ALLOWED_EMAILS","API_TOKEN","ALLOWED_SERVICE_TOKEN_IDS","ANTHROPIC_API_KEY"];
             const o = Object.fromEntries(keys.filter(k => process.env[k]).map(k => [k, process.env[k]]));
             require("fs").writeFileSync("secrets.json", JSON.stringify(o));
             console.log("登録する項目:", Object.keys(o).join(", ") || "(なし)");

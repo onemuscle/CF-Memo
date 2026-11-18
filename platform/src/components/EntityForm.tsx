@@ -4,7 +4,9 @@ import { entity, type FieldDef } from '../../../shared/schema.ts'
 import { api, ApiError, saveRecord, type Row } from '../api.ts'
 import { rowsOf, secLabel, useData } from '../data.tsx'
 import { toast } from './ui.tsx'
-import PhotoInput from './PhotoInput.tsx'
+import PhotoInput, { shrinkImage } from './PhotoInput.tsx'
+import Icon from './Icon.tsx'
+import { addDays } from '../../../shared/analytics.ts'
 
 /** よく使う種目名 (入力候補)。記録済みの種目名も候補に足す */
 export const COMMON_MOVEMENTS = [
@@ -118,12 +120,43 @@ export default function EntityForm({
     for (const f of def.fields) {
       out[f.name] = toInput(f, src[f.name])
       if (!initial && f.type === 'date' && f.required && !out[f.name]) out[f.name] = todayISO()
+      if (!initial && name === 'workouts' && f.name === 'type' && !out[f.name]) out[f.name] = 'crossfit'
     }
     return out
   })
   const [showMore, setShowMore] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [scan, setScan] = useState<{ state: 'idle' | 'busy' | 'done' | 'error'; msg?: string; preview?: string }>({ state: 'idle' })
+
+  /** WOD の写真 → アップロード → Claude で読み取り → 空欄に自動入力 */
+  async function scanWod(file: File | undefined) {
+    if (!file) return
+    const preview = URL.createObjectURL(file)
+    setScan({ state: 'busy', msg: '写真を送信中…', preview })
+    try {
+      const blob = await shrinkImage(file, 2400)
+      const up = await api.upload<{ id: string }>('/api/attachments', blob)
+      setScan({ state: 'busy', msg: 'メニューを読み取り中… (10〜20秒)', preview })
+      const r = await api.post<{ fields: Record<string, unknown>; wod: { confidence: string } }>('/api/wod/scan', { attachment_id: up.id })
+      setValues(prev => {
+        const next = { ...prev }
+        for (const [k, v] of Object.entries(r.fields)) {
+          if (v == null || v === '') continue
+          // 手で入れた内容は消さない。空欄と「種類」だけ埋める
+          if (!prev[k] || k === 'attachment_id') next[k] = String(v)
+        }
+        return next
+      })
+      setScan({
+        state: 'done',
+        preview,
+        msg: r.wod.confidence === 'high' ? '読み取りました。内容を確認して保存してください' : '読み取りました。自信がない文字があるので、内容を確認してください',
+      })
+    } catch (e) {
+      setScan({ state: 'error', preview, msg: (e as Error).message })
+    }
+  }
 
   const suggestions = useMemo(() => {
     const fromData = (ent: string, field: string) => rowsOf(bundle, ent).map(r => String(r[field] ?? ''))
@@ -235,6 +268,25 @@ export default function EntityForm({
           </button>
         </div>
       )
+    } else if (f.type === 'date') {
+      const t = todayISO()
+      input = (
+        <div className="date-row">
+          <input id={id} type="date" value={v} onChange={e => set(f.name, e.target.value)} />
+          <div className="chips">
+            {(
+              [
+                ['今日', t],
+                ['昨日', addDays(t, -1)],
+              ] as [string, string][]
+            ).map(([l, d]) => (
+              <button type="button" key={l} className={v === d ? 'chip on' : 'chip'} onClick={() => set(f.name, d)}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
     } else if (f.type === 'longtext') {
       input = <textarea id={id} value={v} rows={f.name === 'body_md' ? 12 : 3} placeholder={f.placeholder} onChange={e => set(f.name, e.target.value)} />
     } else if (f.type === 'ref' && f.ref === 'attachments') {
@@ -246,8 +298,8 @@ export default function EntityForm({
       input = (
         <input
           id={id}
-          type={special ? 'text' : f.type === 'date' ? 'date' : f.type === 'time' ? 'time' : 'text'}
-          inputMode={special ? 'text' : isNum ? 'decimal' : undefined}
+          type={special ? 'text' : f.type === 'time' ? 'time' : 'text'}
+          inputMode={special ? 'text' : f.type === 'int' ? 'numeric' : isNum ? 'decimal' : undefined}
           value={v}
           list={list}
           placeholder={
@@ -258,7 +310,7 @@ export default function EntityForm({
       )
     }
     return (
-      <div className={`field ${f.type === 'longtext' ? 'wide' : ''}`} key={f.name}>
+      <div className={`field ${f.type === 'longtext' || f.type === 'date' ? 'wide' : ''}`} key={f.name}>
         <label htmlFor={id}>
           {f.name === 'duration_min' && name === 'sleep_logs' ? '睡眠時間' : f.label}
           {f.unit && f.name !== 'duration_s' && !(name === 'sleep_logs' && f.name === 'duration_min') && <span className="unit">{f.unit}</span>}
@@ -281,6 +333,20 @@ export default function EntityForm({
           <option key={m} value={m} />
         ))}
       </datalist>
+      {name === 'workouts' && (
+        <div className={`scan-box ${scan.state}`}>
+          {scan.preview && <img src={scan.preview} alt="" />}
+          <div className="scan-text">
+            <b>{scan.state === 'idle' ? 'ホワイトボードを撮影して自動入力' : scan.state === 'busy' ? '読み取り中' : scan.state === 'done' ? '自動入力しました' : '読み取れませんでした'}</b>
+            <small>{scan.msg ?? 'タイトル・形式・種目と重量を写真から入力します'}</small>
+          </div>
+          <label className={`btn ${scan.state === 'idle' ? 'primary' : ''} small`}>
+            <Icon name="camera" size={18} />
+            {scan.state === 'busy' ? '…' : scan.state === 'idle' ? '撮影' : '撮り直す'}
+            <input type="file" accept="image/*" capture="environment" hidden disabled={scan.state === 'busy'} onChange={e => scanWod(e.target.files?.[0])} />
+          </label>
+        </div>
+      )}
       <div className="fields">{primary.map(renderField)}</div>
       {rest.length > 0 && (
         <>
@@ -297,7 +363,7 @@ export default function EntityForm({
           ))}
         </div>
       )}
-      <div className="form-actions">
+      <div className="form-actions sticky">
         {editing && (
           <button type="button" className="btn danger" onClick={remove} disabled={busy}>
             削除

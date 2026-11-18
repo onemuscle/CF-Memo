@@ -186,6 +186,17 @@ try {
   assert.equal((await api<{ row: { weight_kg: number } }>('GET', '/api/e/strength_sets/persist-1')).json.row.weight_kg, 120)
   ok('SQL ダンプから別のデータベースに復元できた')
 
+  step('7. Apple ヘルスケアの取り込み (二重登録しない)・WOD 読み取り (キー未設定)')
+  const hp = { date: '2026-11-18', sleep_hours: 6.5, hrv_ms: 58, resting_hr: 52, steps: 8000, weight_kg: 86.4 }
+  const h1 = await api<{ inserted: number }>('POST', '/api/ingest/health', hp)
+  assert.equal(h1.json.inserted, 3)
+  const h2 = await api<{ inserted: number; unchanged: number }>('POST', '/api/ingest/health', hp)
+  assert.equal(h2.json.inserted, 0)
+  assert.equal(h2.json.unchanged, 3)
+  ok('同じヘルスケアデータを2回送っても1回分だけ')
+  assert.equal((await api('POST', '/api/wod/scan', { attachment_id: 'persist-img' })).status, 503)
+  ok('API キー未設定なら WOD 読み取りは 503 で理由を返す')
+
   console.log(`\n✅ 永続性テスト: ${passed} 項目すべて成功`)
 } catch (e) {
   console.error('\n❌ 失敗:', e)

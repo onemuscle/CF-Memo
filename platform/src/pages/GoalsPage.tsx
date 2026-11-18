@@ -14,7 +14,10 @@ export default function GoalsPage({ onOpen }: { onOpen: (name: string, row?: Row
   return (
     <div className="page">
       <header className="page-head">
-        <h1>GOALS</h1>
+        <div>
+          <div className="eyebrow">GOALS</div>
+          <h1>目標</h1>
+        </div>
         <button className="btn primary small" onClick={() => onOpen('goals', undefined, { status: 'active', start_date: today })}>
           + 目標
         </button>
