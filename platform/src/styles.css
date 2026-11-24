@@ -1400,3 +1400,17 @@ ul.plain {
   background: var(--surface-2);
   color: var(--text-2);
 }
+.movement-select {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
