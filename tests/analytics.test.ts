@@ -100,3 +100,10 @@ test('コンディション: 平均点が高くても睡眠不足なら「攻め
   assert.ok(r.score! >= 75)
   assert.equal(r.level, 'easy')
 })
+
+test('種目カタログ: 英語表記が重複せず、日本語を引ける', async () => {
+  const { MOVEMENT_CATALOG, SKILL_CATALOG, jaName } = await import('../shared/movements.ts')
+  const names = [...MOVEMENT_CATALOG, ...SKILL_CATALOG].flatMap(g => g.items.map(([en]) => en.toLowerCase()))
+  assert.equal(new Set(names).size, names.length)
+  assert.equal(jaName('back squat'), 'バックスクワット')
+})

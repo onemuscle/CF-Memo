@@ -6,46 +6,9 @@ import { rowsOf, secLabel, useData } from '../data.tsx'
 import { toast } from './ui.tsx'
 import PhotoInput, { shrinkImage } from './PhotoInput.tsx'
 import Icon from './Icon.tsx'
+import MovementSelect from './MovementSelect.tsx'
+import { MOVEMENT_CATALOG, SKILL_CATALOG } from '../../../shared/movements.ts'
 import { addDays } from '../../../shared/analytics.ts'
-
-/** よく使う種目名 (入力候補)。記録済みの種目名も候補に足す */
-export const COMMON_MOVEMENTS = [
-  'Back Squat',
-  'Front Squat',
-  'Overhead Squat',
-  'Deadlift',
-  'Bench Press',
-  'Strict Press',
-  'Push Press',
-  'Push Jerk',
-  'Split Jerk',
-  'Clean',
-  'Power Clean',
-  'Squat Clean',
-  'Clean & Jerk',
-  'Snatch',
-  'Power Snatch',
-  'Squat Snatch',
-  'Thruster',
-  'Weighted Pull-up',
-  'Hip Thrust',
-  'Romanian Deadlift',
-]
-export const COMMON_SKILLS = [
-  'Ring Muscle-up',
-  'Bar Muscle-up',
-  'Strict Pull-up',
-  'Chest to Bar',
-  'Toes to Bar',
-  'Handstand Push-up',
-  'Strict HSPU',
-  'Handstand Walk',
-  'Double Under',
-  'Rope Climb',
-  'Legless Rope Climb',
-  'Pistol',
-  'Wall Walk',
-]
 
 /** サーバー側の機能 (WOD 写真の読み取りが使えるか) を1回だけ取得 */
 let featuresPromise: Promise<{ wod_scan: boolean }> | null = null
@@ -172,12 +135,14 @@ export default function EntityForm({
     }
   }
 
-  const suggestions = useMemo(() => {
-    const fromData = (ent: string, field: string) => rowsOf(bundle, ent).map(r => String(r[field] ?? ''))
-    return {
-      movement: [...new Set([...fromData('strength_sets', 'movement'), ...COMMON_MOVEMENTS])].filter(Boolean),
-      skill: [...new Set([...fromData('skill_logs', 'skill'), ...COMMON_SKILLS])].filter(Boolean),
-    }
+  /** 最近使った種目 (新しい順・重複なし) */
+  const recent = useMemo(() => {
+    const fromData = (ent: string, field: string) =>
+      [...rowsOf(bundle, ent)]
+        .sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')))
+        .map(r => String(r[field] ?? ''))
+        .filter(Boolean)
+    return { movement: [...new Set(fromData('strength_sets', 'movement'))], skill: [...new Set(fromData('skill_logs', 'skill'))] }
   }, [bundle])
 
   const fields = def.fields.filter(f => !f.computed && !HIDDEN.has(f.name))
@@ -301,6 +266,18 @@ export default function EntityForm({
           </div>
         </div>
       )
+    } else if ((name === 'strength_sets' && f.name === 'movement') || (name === 'skill_logs' && f.name === 'skill')) {
+      const isSkill = f.name === 'skill'
+      input = (
+        <MovementSelect
+          id={id}
+          value={v}
+          onChange={nv => set(f.name, nv)}
+          catalog={isSkill ? SKILL_CATALOG : MOVEMENT_CATALOG}
+          recent={isSkill ? recent.skill : recent.movement}
+          placeholder={isSkill ? '例: Ring Muscle-up' : '例: Back Squat (英語で入力)'}
+        />
+      )
     } else if (f.type === 'longtext') {
       input = <textarea id={id} value={v} rows={f.name === 'body_md' ? 12 : 3} placeholder={f.placeholder} onChange={e => set(f.name, e.target.value)} />
     } else if (f.type === 'ref' && f.ref === 'attachments') {
@@ -308,14 +285,12 @@ export default function EntityForm({
     } else {
       const isNum = f.type === 'int' || f.type === 'real'
       const special = f.name === 'duration_s' || (name === 'sleep_logs' && f.name === 'duration_min')
-      const list = f.name === 'movement' ? 'dl-movement' : f.name === 'skill' ? 'dl-skill' : undefined
       input = (
         <input
           id={id}
           type={special ? 'text' : f.type === 'time' ? 'time' : 'text'}
           inputMode={special ? 'text' : f.type === 'int' ? 'numeric' : isNum ? 'decimal' : undefined}
           value={v}
-          list={list}
           placeholder={
             f.name === 'duration_s' ? '25:30 / 1:05:00 (分だけなら 30)' : name === 'sleep_logs' && f.name === 'duration_min' ? '6:30 または 6.5 (時間)' : f.placeholder
           }
@@ -324,7 +299,7 @@ export default function EntityForm({
       )
     }
     return (
-      <div className={`field ${f.type === 'longtext' || f.type === 'date' ? 'wide' : ''}`} key={f.name}>
+      <div className={`field ${f.type === 'longtext' || f.type === 'date' || f.name === 'movement' || f.name === 'skill' ? 'wide' : ''}`} key={f.name}>
         <label htmlFor={id}>
           {f.name === 'duration_min' && name === 'sleep_logs' ? '睡眠時間' : f.label}
           {f.unit && f.name !== 'duration_s' && !(name === 'sleep_logs' && f.name === 'duration_min') && <span className="unit">{f.unit}</span>}
@@ -337,16 +312,6 @@ export default function EntityForm({
 
   return (
     <form className="entity-form" onSubmit={submit}>
-      <datalist id="dl-movement">
-        {suggestions.movement.map(m => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
-      <datalist id="dl-skill">
-        {suggestions.skill.map(m => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
       {name === 'workouts' && scanEnabled === false && !editing && (
         <div className="scan-box hint">
           <Icon name="camera" size={22} />
